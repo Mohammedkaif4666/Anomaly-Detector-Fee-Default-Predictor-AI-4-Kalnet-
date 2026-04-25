@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.balanced
+*.log
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Data (Optional: ignore if you don't want to push CSVs)
+# mohammed_kaif/*.csv
+# rohith_koppu/*.csv
+
+# Models (Optional: ignore if you don't want to push large models)
+# */*.pkl
+
+# OS
+.DS_Store
+Thumbs.db
