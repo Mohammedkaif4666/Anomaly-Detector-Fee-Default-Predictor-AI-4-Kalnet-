@@ -1,125 +1,85 @@
 import pandas as pd
 import numpy as np
 import joblib
+import os
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, recall_score
-import os
+from sklearn.metrics import recall_score, classification_report
 
-# Features to use for anomaly detection
-FEATURE_COLS = [
-    'attendance_rate', 
-    'longest_absence_streak', 
-    'absence_in_last_30_days', 
-    'day_of_week_variance'
-]
+def train_attendance_model():
+    print("Training Attendance Anomaly Model...")
+    
+    # Load features
+    if not os.path.exists('data/attendance_features.csv'):
+        print("Features not found. Run feature_engineering.py first.")
+        return
 
-def train_model():
-    print("Training Attendance Anomaly Detection Model...")
+    df = pd.read_csv('data/attendance_features.csv')
+    X = df.drop(['student_id', 'is_anomaly'], axis=1)
+    y_true = df['is_anomaly']
     
-    # Load data
-    df = pd.read_csv("../rohith_koppu/attendance_features.csv")
-    X = df[FEATURE_COLS]
-    y_true = df['is_anomalous']
-    
-    # Normalise features
+    # Normalize features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Train IsolationForest
-    # contamination=0.1 since we expect roughly 10-14% anomalies
+    # Train Isolation Forest
     model = IsolationForest(contamination=0.1, n_estimators=100, random_state=42)
     model.fit(X_scaled)
     
-    # Evaluate
-    # IsolationForest returns -1 for anomaly, 1 for normal
-    preds = model.predict(X_scaled)
-    y_pred = np.where(preds == -1, 1, 0)
+    # Get predictions and scores
+    # IsolationForest returns -1 for anomalies, 1 for normal
+    y_pred = model.predict(X_scaled)
+    y_pred = [1 if x == -1 else 0 for x in y_pred] # Convert to our label format
     
+    # Risk score: more negative is higher risk
+    decision_scores = model.decision_function(X_scaled)
+    # Normalize to 0-100 (where 100 is highest risk)
+    # decision_function returns values in roughly [-0.5, 0.5]
+    # Let's map it: higher risk score for more anomalous
+    risk_scores = 100 * (1 - (decision_scores - decision_scores.min()) / (decision_scores.max() - decision_scores.min()))
+    
+    # Evaluate
     recall = recall_score(y_true, y_pred)
     print(f"Model Recall: {recall:.2f}")
-    
-    if recall >= 0.60:
-        print("Success: Recall target met!")
-    else:
-        print("Warning: Recall target NOT met.")
-        
-    print("\nClassification Report:")
     print(classification_report(y_true, y_pred))
     
-    # Save the scaler and model together
-    artifacts = {
-        'scaler': scaler,
-        'model': model,
-        'features': FEATURE_COLS
-    }
-    
-    os.makedirs(os.path.dirname("attendance_model.pkl") or ".", exist_ok=True)
-    joblib.dump(artifacts, "attendance_model.pkl")
-    print("Saved attendance_model.pkl")
+    # Save model and scaler
+    os.makedirs('models/attendance_anomaly', exist_ok=True)
+    joblib.dump(model, 'models/attendance_anomaly/model.pkl')
+    joblib.dump(scaler, 'models/attendance_anomaly/scaler.pkl')
+    print("Model saved to models/attendance_anomaly/model.pkl")
 
 def flag_anomalies(df):
     """
-    Returns DataFrame with risk scores and flags for the given students.
+    Function to be used in production/API
+    Returns {student_id, risk_score, is_flagged, risk_level}
     """
-    artifacts = joblib.load("attendance_model.pkl")
-    scaler = artifacts['scaler']
-    model = artifacts['model']
-    features = artifacts['features']
+    model = joblib.load('models/attendance_anomaly/model.pkl')
+    scaler = joblib.load('models/attendance_anomaly/scaler.pkl')
     
-    # Ensure all features are present
-    X = df[features]
+    X = df.drop(['student_id'], axis=1, errors='ignore')
     X_scaled = scaler.transform(X)
     
-    # Predict (-1 is anomaly, 1 is normal)
-    preds = model.predict(X_scaled)
+    y_pred = model.predict(X_scaled)
+    decision_scores = model.decision_function(X_scaled)
     
-    # Get risk score: decision_function
-    # Negative scores are anomalies, positive are normal.
-    # Lower value means more anomalous.
-    scores = model.decision_function(X_scaled)
+    # Normalize risk score to 0-100
+    # For simplicity in this function, we'll use a fixed mapping or re-calculate based on training range
+    # In a real app, we'd store the min/max from training
+    risk_scores = 100 * (1 - (decision_scores + 0.5) / 1.0) # Rough normalization
+    risk_scores = np.clip(risk_scores, 0, 100)
     
-    # Normalize risk score to 0-100 scale where 100 is highest risk
-    # decision_function typically ranges between -0.5 and 0.5 roughly
-    # We can use MinMax scaling on the inverted scores, or a fixed threshold.
-    # Let's invert the scores so positive is higher risk
-    inverted_scores = -scores
-    
-    # To normalize 0-100, let's map the min observed to 0 and max to 100
-    # For a robust approach, we can map 0 decision_function to 50 risk score.
-    # But for simplicity, we'll just use a MinMax approach
-    min_score, max_score = inverted_scores.min(), inverted_scores.max()
-    
-    if max_score > min_score:
-        risk_scores_100 = ((inverted_scores - min_score) / (max_score - min_score)) * 100
-    else:
-        risk_scores_100 = np.zeros_like(inverted_scores)
-        
-    results = pd.DataFrame({
-        'student_id': df['student_id'],
-        'risk_score': np.round(risk_scores_100, 2),
-        'is_flagged': np.where(preds == -1, True, False)
-    })
-    
-    # Assign risk level
-    def get_risk_level(row):
-        if row['is_flagged']:
-            return "High"
-        elif row['risk_score'] > 60:
-            return "Medium"
-        return "Low"
-        
-    results['risk_level'] = results.apply(get_risk_level, axis=1)
-    
+    results = []
+    for i, stu_id in enumerate(df['student_id']):
+        risk = risk_scores[i]
+        level = "High" if risk > 70 else "Medium" if risk > 40 else "Low"
+        results.append({
+            'student_id': stu_id,
+            'risk_score': round(float(risk), 2),
+            'is_flagged': bool(y_pred[i] == -1),
+            'risk_level': level
+        })
     return results
 
 if __name__ == "__main__":
-    # Change cwd if running directly to ensure relative paths work
-    import sys
-    if os.path.basename(os.getcwd()) != 'om_dattatray_wabale':
-        try:
-            os.chdir('om_dattatray_wabale')
-        except FileNotFoundError:
-            pass
-            
-    train_model()
+    train_attendance_model()

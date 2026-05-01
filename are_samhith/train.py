@@ -4,96 +4,76 @@ import joblib
 import os
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, recall_score
-from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.metrics import recall_score, classification_report
 
-FEATURE_COLS = [
-    'days_since_last_payment',
-    'previous_term_status',
-    'total_outstanding',
-    'income_encoded',
-    'transport_user',
-    'sibling_count'
-]
-
-def train_model():
-    print("Training Fee Default Predictor Model...")
+def train_fee_model():
+    print("Training Fee Default Predictor...")
     
-    df = pd.read_csv("../rohith_koppu/fee_features.csv")
-    X = df[FEATURE_COLS]
-    y = df['will_default']
+    # Load features
+    if not os.path.exists('data/fee_features.csv'):
+        print("Features not found. Run feature_engineering.py first.")
+        return
+
+    df = pd.read_csv('data/fee_features.csv')
+    X = df.drop(['student_id', 'label'], axis=1)
+    y = df['label']
     
     # 80/20 split with stratify
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, stratify=y, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
     
-    # Compute sample weights to handle the 5% class imbalance and boost recall
-    sample_weights = compute_sample_weight(class_weight='balanced', y=y_train)
-    
+    # Train Gradient Boosting
     model = GradientBoostingClassifier(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train, sample_weight=sample_weights)
+    model.fit(X_train, y_train)
     
     # Evaluate
-    # predict_proba for class 1
-    probs = model.predict_proba(X_test)[:, 1]
+    y_pred = model.predict(X_test)
     
-    # We will use a custom threshold to hit the recall target
-    # Lowering the threshold to 0.3 to catch more defaulters
-    threshold = 0.3
-    y_pred = (probs >= threshold).astype(int)
+    # Calculate recall for 'Default' class (label 2)
+    # Note: status 0=On time, 1=Late, 2=Default
+    recall_default = recall_score(y_test, y_pred, labels=[2], average='macro')
     
-    recall = recall_score(y_test, y_pred)
-    print(f"Model Recall (Class 1): {recall:.2f}")
-    
-    if recall >= 0.70:
-        print("Success: Recall target met!")
-    else:
-        print("Warning: Recall target NOT met. Adjusting threshold might be needed.")
-        
-    print("\nClassification Report:")
+    print(f"Recall for Default Class: {recall_default:.2f}")
     print(classification_report(y_test, y_pred))
     
+    # Feature Importances
+    importances = pd.DataFrame({
+        'feature': X.columns,
+        'importance': model.feature_importances_
+    }).sort_values('importance', ascending=False)
     print("\nFeature Importances:")
-    importances = pd.Series(model.feature_importances_, index=FEATURE_COLS).sort_values(ascending=False)
     print(importances)
     
-    # Save the model
-    artifacts = {
-        'model': model,
-        'features': FEATURE_COLS
-    }
-    
-    os.makedirs(os.path.dirname("fee_model.pkl") or ".", exist_ok=True)
-    joblib.dump(artifacts, "fee_model.pkl")
-    print("\nSaved fee_model.pkl")
+    # Save model
+    os.makedirs('models/fee_predictor', exist_ok=True)
+    joblib.dump(model, 'models/fee_predictor/model.pkl')
+    print("Model saved to models/fee_predictor/model.pkl")
 
 def predict_default_risk(df):
-    artifacts = joblib.load("fee_model.pkl")
-    model = artifacts['model']
-    features = artifacts['features']
+    """
+    Function to be used in production/API
+    Returns {student_id, default_probability, risk_category}
+    """
+    model = joblib.load('models/fee_predictor/model.pkl')
     
-    X = df[features]
-    probs = model.predict_proba(X)[:, 1]
+    X = df.drop(['student_id'], axis=1, errors='ignore')
     
-    results = pd.DataFrame({
-        'student_id': df['student_id'],
-        'default_probability': np.round(probs, 2)
-    })
+    # Get probabilities for all classes
+    probs = model.predict_proba(X)
+    # Probability of class 2 (Default)
+    default_probs = probs[:, 2]
     
-    def get_category(prob):
-        if prob > 0.6:
-            return "High Risk"
-        elif prob > 0.3:
-            return "Medium Risk"
-        return "Low Risk"
-        
-    results['risk_category'] = results['default_probability'].apply(get_category)
+    results = []
+    for i, stu_id in enumerate(df['student_id']):
+        prob = default_probs[i]
+        category = "High" if prob > 0.6 else "Medium" if prob > 0.3 else "Low"
+        results.append({
+            'student_id': stu_id,
+            'default_probability': round(float(prob), 2),
+            'risk_category': category
+        })
     return results
 
 if __name__ == "__main__":
-    if os.path.basename(os.getcwd()) != 'are_samhith':
-        try:
-            os.chdir('are_samhith')
-        except FileNotFoundError:
-            pass
-            
-    train_model()
+    train_fee_model()
