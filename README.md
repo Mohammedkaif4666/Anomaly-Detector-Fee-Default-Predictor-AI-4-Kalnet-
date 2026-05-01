@@ -55,14 +55,11 @@ Launch the FastAPI backend:
 uvicorn jyothsna_lenka.main:app --reload
 ```
 
-### 4. Interactive API Documentation & Demo
+### 4. Interactive Testing
 Once the server is running, open your web browser and navigate to:
 **`http://localhost:8000/docs`**
 
-Type **`/docs`** in your browser's address bar to access the interactive Swagger UI. Here you can:
-*   View all available endpoints.
-*   Test the model predictions with custom `student_ids`.
-*   See live responses from the AI models.
+Type **`/docs`** in your browser's address bar to access the interactive Swagger UI. This allows you to test the AI models live by sending student IDs.
 
 ## 📄 Documentation
 For a detailed analysis of model performance and plain-English descriptions of the AI logic, refer to:
