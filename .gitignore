@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -21,13 +22,27 @@ coverage.xml
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-# Data (Optional: ignore if you don't want to push CSVs)
-# mohammed_kaif/*.csv
-# rohith_koppu/*.csv
+# Secrets & Environment Variables
+.env
+.env.*
+*.secret
+secrets.py
+config_local.py
 
-# Models (Optional: ignore if you don't want to push large models)
-# */*.pkl
+# API Keys / Credentials (never commit these)
+*_key.txt
+*_secret.txt
+credentials.json
+token.json
+service_account.json
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

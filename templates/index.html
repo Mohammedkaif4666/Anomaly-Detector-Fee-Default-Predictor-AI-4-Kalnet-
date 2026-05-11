@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KALNET AI-4 — School Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#f0f4ff;color:#1e293b;min-height:100vh}
+nav{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 12px rgba(0,0,0,.06)}
+.nav-brand{display:flex;align-items:center;gap:12px}
+.nav-logo{width:38px;height:38px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}
+.nav-title{font-size:18px;font-weight:700}.nav-title span{color:#2563eb}
+.nav-badge{background:#eff6ff;color:#2563eb;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;border:1px solid #bfdbfe}
+.hero{background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#4f46e5 100%);color:#fff;padding:60px 32px 48px;text-align:center;overflow:hidden}
+.hero h1{font-size:clamp(28px,5vw,52px);font-weight:800;margin-bottom:12px}
+.hero h1 span.cursor::after{content:'|';animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.hero p{font-size:clamp(14px,2vw,18px);opacity:.85;max-width:600px;margin:0 auto 32px}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:0 32px;margin:-28px auto 0;max-width:1200px;position:relative;z-index:10}
+.stat-card{background:#fff;border-radius:16px;padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-left:4px solid #e2e8f0;transition:transform .2s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-card.blue{border-color:#2563eb}.stat-card.red{border-color:#dc2626}.stat-card.amber{border-color:#d97706}.stat-card.green{border-color:#16a34a}
+.stat-card h3{font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.stat-card .num{font-size:36px;font-weight:800;line-height:1}
+.stat-card.blue .num{color:#2563eb}.stat-card.red .num{color:#dc2626}.stat-card.amber .num{color:#d97706}.stat-card.green .num{color:#16a34a}
+.stat-card .sub{font-size:12px;color:#94a3b8;margin-top:4px}
+.main{max-width:1200px;margin:40px auto;padding:0 32px}
+.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px}
+.search-wrap{flex:1;min-width:220px;position:relative}
+.search-wrap input{width:100%;padding:12px 16px 12px 42px;border:1px solid #e2e8f0;border-radius:12px;font-size:14px;font-family:inherit;background:#fff;outline:none;transition:border-color .2s,box-shadow .2s}
+.search-wrap input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.search-wrap .icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.pill{padding:10px 16px;border:1px solid #e2e8f0;border-radius:100px;font-size:13px;font-weight:500;cursor:pointer;background:#fff;color:#64748b;transition:all .2s;white-space:nowrap}
+.pill:hover{border-color:#2563eb;color:#2563eb}
+.pill.active{background:#2563eb;border-color:#2563eb;color:#fff}
+.pill.red.active{background:#dc2626;border-color:#dc2626}.pill.green.active{background:#16a34a;border-color:#16a34a}
+.results-info{font-size:13px;color:#94a3b8;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.student-card{background:#fff;border-radius:16px;padding:20px;border:1px solid #e2e8f0;cursor:pointer;transition:all .22s;animation:fadeUp .4s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.student-card:hover{border-color:#2563eb;box-shadow:0 8px 32px rgba(37,99,235,.14);transform:translateY(-3px)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.card-avatar{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#dbeafe,#ede9fe);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#2563eb;flex-shrink:0}
+.badge{padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600}
+.badge.anomaly{background:#fef2f2;color:#dc2626}.badge.safe{background:#f0fdf4;color:#16a34a}
+.badge.default{background:#fef2f2;color:#dc2626}.badge.late{background:#fffbeb;color:#d97706}.badge.ontime{background:#f0fdf4;color:#16a34a}
+.card-name{font-size:15px;font-weight:600;margin-bottom:4px}
+.card-id{font-size:11px;color:#94a3b8;margin-bottom:12px}
+.card-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric{background:#f8fafc;border-radius:10px;padding:10px 12px}
+.metric .label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.metric .val{font-size:18px;font-weight:700}
+.metric .val.danger{color:#dc2626}.metric .val.warn{color:#d97706}.metric .val.ok{color:#16a34a}
+.progress-bar{height:4px;background:#f1f5f9;border-radius:4px;margin-top:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .6s ease}
+
+/* ── CENTER MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:300;backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:24px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.2);animation:popIn .28s cubic-bezier(.34,1.56,.64,1)}
+@keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.modal-header{padding:24px 28px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1;border-radius:24px 24px 0 0}
+.modal-header-left h2{font-size:20px;font-weight:700}
+.modal-header-left p{font-size:13px;color:#94a3b8;margin-top:2px}
+.close-btn{width:34px;height:34px;border-radius:8px;border:none;background:#f1f5f9;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:#64748b;transition:background .2s}
+.close-btn:hover{background:#e2e8f0}
+.modal-body{padding:24px 28px}
+
+/* reason box */
+.reason-box{border-radius:14px;padding:16px;margin-bottom:20px;border-left:4px solid}
+.reason-box.danger{background:#fef2f2;border-color:#dc2626}.reason-box.warn{background:#fffbeb;border-color:#d97706}.reason-box.ok{background:#f0fdf4;border-color:#16a34a}
+.reason-box h4{font-size:13px;font-weight:700;margin-bottom:6px}
+.reason-box p{font-size:13px;line-height:1.6;color:#374151}
+
+.big-ring{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.ring-stat{text-align:center;background:#f8fafc;border-radius:14px;padding:16px 10px}
+.ring-stat .big{font-size:28px;font-weight:800;line-height:1}
+.ring-stat .desc{font-size:11px;color:#94a3b8;margin-top:4px}
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:20px 0 10px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f8fafc}
+.info-row .lbl{font-size:14px;color:#64748b}.info-row .val{font-size:14px;font-weight:600}
+.fee-bar-wrap{margin:12px 0}
+.fee-bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.fee-bar-track{height:10px;background:#f1f5f9;border-radius:10px;overflow:hidden}
+.fee-bar-fill{height:100%;border-radius:10px;transition:width .8s ease}
+.chart-wrap{height:160px;margin:12px 0}
+
+.loader-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:80px 0}
+.spinner{width:44px;height:44px;border:4px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:60px 20px;color:#94a3b8}
+footer{text-align:center;padding:32px;color:#94a3b8;font-size:13px;border-top:1px solid #e2e8f0;margin-top:48px;background:#fff}
+
+@media(max-width:768px){
+  .stats-bar{grid-template-columns:1fr 1fr;margin:16px 16px 0}.main{padding:0 16px;margin:24px auto}
+  nav{padding:0 16px}.hero{padding:40px 16px 36px}.big-ring{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:480px){.stats-bar{grid-template-columns:1fr 1fr;gap:10px}.grid{grid-template-columns:1fr}.controls{flex-direction:column}.big-ring{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">K4</div>
+    <div><div class="nav-title"><span>KALNET</span> AI-4</div></div>
+  </div>
+  <span class="nav-badge">⚡ Live AI Engine</span>
+</nav>
+
+<div class="hero">
+  <h1><span id="typedText"></span><span class="cursor"></span></h1>
+  <p>Real-time anomaly detection and fee default prediction for 500+ students using machine learning.</p>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-card blue"><h3>Total Students</h3><div class="num" id="sTotal">—</div><div class="sub">In dataset</div></div>
+  <div class="stat-card red"><h3>Attendance Anomalies</h3><div class="num" id="sAnom">—</div><div class="sub">Flagged by AI</div></div>
+  <div class="stat-card amber"><h3>Fee Defaults</h3><div class="num" id="sFee">—</div><div class="sub">High-risk students</div></div>
+  <div class="stat-card green"><h3>Late Payments</h3><div class="num" id="sLate">—</div><div class="sub">Needs follow-up</div></div>
+</div>
+
+<div class="main">
+  <div class="controls">
+    <div class="search-wrap">
+      <span class="icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search by name or student ID…">
+    </div>
+    <div class="filters">
+      <button class="pill active" data-filter="all">All Students</button>
+      <button class="pill red" data-filter="anomaly">⚠️ Anomalies</button>
+      <button class="pill" data-filter="fee_risk">💸 Fee Default</button>
+      <button class="pill green" data-filter="safe">✅ Safe</button>
+    </div>
+  </div>
+  <div class="results-info" id="resultsInfo"></div>
+  <div id="gridContainer">
+    <div class="loader-wrap"><div class="spinner"></div><span style="color:#94a3b8">Loading students…</span></div>
+  </div>
+</div>
+
+<!-- CENTER MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h2 id="modalName">Student Detail</h2>
+        <p id="modalId"></p>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">Loading…</div>
+  </div>
+</div>
+
+<footer>KALNET AI-4 Team Project — Anomaly Detector &amp; Fee Default Predictor · Powered by Scikit-learn &amp; FastAPI</footer>
+
+<script>
+const API = '';
+const phrases = ['Attendance Anomaly Detection','Fee Default Prediction','School Intelligence Dashboard','Early Warning System'];
+let pi=0,ci=0,del=false;
+const el=document.getElementById('typedText');
+function type(){
+  const p=phrases[pi];
+  if(!del){el.textContent=p.slice(0,++ci);if(ci===p.length){del=true;setTimeout(type,2200);return;}}
+  else{el.textContent=p.slice(0,--ci);if(ci===0){del=false;pi=(pi+1)%phrases.length;}}
+  setTimeout(type,del?40:70);
+}
+type();
+
+function animateCount(el,target){
+  let n=0,step=Math.max(1,Math.ceil(target/40));
+  const t=setInterval(()=>{n=Math.min(n+step,target);el.textContent=n;if(n>=target)clearInterval(t);},28);
+}
+
+async function loadSummary(){
+  const r=await fetch(API+'/api/summary');const d=await r.json();
+  animateCount(document.getElementById('sTotal'),d.total);
+  animateCount(document.getElementById('sAnom'),d.anomalies);
+  animateCount(document.getElementById('sFee'),d.fee_defaults);
+  animateCount(document.getElementById('sLate'),d.fee_late);
+}
+
+let currentFilter='all',searchTimer;
+function initials(n){return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+function attColor(r){return r>=80?'ok':r>=60?'warn':'danger';}
+function feeBadge(l){return l===2?'<span class="badge default">Default</span>':l===1?'<span class="badge late">Late</span>':'<span class="badge ontime">On Time</span>';}
+
+function renderCards(students){
+  const c=document.getElementById('gridContainer');
+  document.getElementById('resultsInfo').textContent=`Showing ${students.length} student${students.length!==1?'s':''}`;
+  if(!students.length){c.innerHTML='<div class="empty"><div style="font-size:48px">🔍</div><p style="margin-top:12px">No students match your search.</p></div>';return;}
+  c.innerHTML='<div class="grid">'+students.map((s,i)=>{
+    const pct=s.attendance_rate,bc=pct>=80?'#16a34a':pct>=60?'#d97706':'#dc2626';
+    return `<div class="student-card" style="animation-delay:${Math.min(i*30,400)}ms" onclick="openModal('${s.id}')">
+      <div class="card-header">
+        <div class="card-avatar">${initials(s.name)}</div>
+        <div style="text-align:right">
+          ${s.is_anomaly?'<span class="badge anomaly">⚠️ Anomaly</span>':'<span class="badge safe">✓ Normal</span>'}
+          <div style="margin-top:4px">${feeBadge(s.fee_label)}</div>
+        </div>
+      </div>
+      <div class="card-name">${s.name}</div>
+      <div class="card-id">${s.id}</div>
+      <div class="card-metrics">
+        <div class="metric"><div class="label">Attendance</div><div class="val ${attColor(pct)}">${pct}%</div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${bc}"></div></div></div>
+        <div class="metric"><div class="label">Risk Score</div><div class="val ${s.risk_score>70?'danger':s.risk_score>40?'warn':'ok'}">${s.risk_score}</div><div style="font-size:10px;color:#94a3b8;margin-top:3px">/100</div></div>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+async function loadStudents(search='',filter='all'){
+  const c=document.getElementById('gridContainer');
+  c.innerHTML='<div class="loader-wrap"><div class="spinner"></div><span style="color:#94a3b8">Loading…</span></div>';
+  const r=await fetch(`${API}/api/students?search=${encodeURIComponent(search)}&filter=${filter}`);
+  renderCards(await r.json());
+}
+
+document.querySelectorAll('.pill').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');currentFilter=btn.dataset.filter;
+    loadStudents(document.getElementById('searchInput').value,currentFilter);
+  });
+});
+document.getElementById('searchInput').addEventListener('input',e=>{
+  clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadStudents(e.target.value,currentFilter),280);
+});
+
+// ── Generate reason text ──
+function buildReasons(s){
+  const attReasons=[];const feeReasons=[];
+  if(s.is_anomaly){
+    if(s.attendance_rate<50) attReasons.push(`Critical attendance rate of ${s.attendance_rate}% — well below the safe threshold of 75%. The AI model detected this as a severe anomaly.`);
+    else if(s.attendance_rate<70) attReasons.push(`Attendance rate dropped to ${s.attendance_rate}%, significantly below normal. This sudden decline was flagged as suspicious by IsolationForest.`);
+    else attReasons.push(`Despite a ${s.attendance_rate}% overall rate, the pattern of absences is irregular — indicating a sudden recent drop that the model flagged as anomalous.`);
+    if(s.absence_streak>=7) attReasons.push(`Longest consecutive absence streak: ${s.absence_streak} days — a sign of possible family crisis, health issue, or dropout risk.`);
+    if(s.absence_30d>=10) attReasons.push(`${s.absence_30d} absences in the last 30 days alone — attendance has deteriorated sharply in recent weeks.`);
+  }
+  if(s.fee_label===2){
+    feeReasons.push(`Student has defaulted on fee payment with ₹${s.outstanding.toLocaleString()} outstanding.`);
+    if(s.days_late>60) feeReasons.push(`Payment is overdue by ${s.days_late} days — categorized as a confirmed default.`);
+    if(s.fee_prob>80) feeReasons.push(`AI model assigns a ${s.fee_prob}% default probability, indicating near-certain non-payment without intervention.`);
+  } else if(s.fee_label===1){
+    feeReasons.push(`Student has a history of late payments — currently ${s.days_late} days since last payment.`);
+    if(s.fee_prob>30) feeReasons.push(`Fee default probability is ${s.fee_prob}% — early outreach is recommended before this escalates.`);
+  }
+  return {attReasons,feeReasons};
+}
+
+let chartInstance=null;
+async function openModal(id){
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('modalBody').innerHTML='<div class="loader-wrap"><div class="spinner"></div></div>';
+  const r=await fetch(`${API}/api/student/${id}`);
+  const s=await r.json();
+  document.getElementById('modalName').textContent=s.name;
+  document.getElementById('modalId').textContent=`${s.id} · ${s.is_anomaly?'⚠️ Attendance Anomaly':'✅ Attendance Normal'} · ${['On Time','Late Pay','Fee Default'][s.fee_label]}`;
+
+  const {attReasons,feeReasons}=buildReasons(s);
+  const attColor2=s.attendance_rate>=80?'#16a34a':s.attendance_rate>=60?'#d97706':'#dc2626';
+  const feeColor=['#16a34a','#d97706','#dc2626'][s.fee_label];
+  const riskLvl=s.risk_score>70?'🔴 High Risk':s.risk_score>40?'🟡 Medium Risk':'🟢 Low Risk';
+  const feeStatus=['On Time 🟢','Late Payment 🟡','Default 🔴'][s.fee_label];
+
+  // Build reason boxes
+  let reasonHTML='';
+  if(attReasons.length>0){
+    const cls=s.is_anomaly?'danger':'ok';
+    const title=s.is_anomaly?'⚠️ Why This Student Is Flagged (Attendance)':'✅ Attendance Status';
+    reasonHTML+=`<div class="reason-box ${cls}"><h4>${title}</h4>${attReasons.map(r=>`<p>• ${r}</p>`).join('')}</div>`;
+  }
+  if(feeReasons.length>0){
+    const cls=s.fee_label===2?'danger':s.fee_label===1?'warn':'ok';
+    const title=s.fee_label===2?'🔴 Why This Student Is a Fee Default Risk':s.fee_label===1?'🟡 Late Payment Warning':'💰 Fee Status';
+    reasonHTML+=`<div class="reason-box ${cls}"><h4>${title}</h4>${feeReasons.map(r=>`<p>• ${r}</p>`).join('')}</div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML=`
+    ${reasonHTML}
+    <div class="big-ring">
+      <div class="ring-stat"><div class="big" style="color:${attColor2}">${s.attendance_rate}%</div><div class="desc">Attendance</div></div>
+      <div class="ring-stat"><div class="big" style="color:${s.risk_score>70?'#dc2626':s.risk_score>40?'#d97706':'#16a34a'}">${s.risk_score}</div><div class="desc">Risk Score</div></div>
+      <div class="ring-stat"><div class="big" style="color:${feeColor}">${s.fee_prob}%</div><div class="desc">Default Prob.</div></div>
+    </div>
+    <div class="section-title">📋 Attendance Details</div>
+    <div class="info-row"><span class="lbl">AI Risk Level</span><span class="val">${riskLvl}</span></div>
+    <div class="info-row"><span class="lbl">Longest Absence Streak</span><span class="val">${s.absence_streak} days</span></div>
+    <div class="info-row"><span class="lbl">Absences (Last 30 Days)</span><span class="val">${s.absence_30d} days</span></div>
+    <div class="section-title">📅 Last 30-Day Attendance Chart</div>
+    <div class="chart-wrap"><canvas id="attChart"></canvas></div>
+    <div class="section-title">💰 Fee Details</div>
+    <div class="info-row"><span class="lbl">Payment Status</span><span class="val">${feeStatus}</span></div>
+    <div class="info-row"><span class="lbl">Outstanding Amount</span><span class="val">₹${s.outstanding.toLocaleString()}</span></div>
+    <div class="info-row"><span class="lbl">Days Since Last Payment</span><span class="val">${s.days_late} days</span></div>
+    <div class="fee-bar-wrap">
+      <div class="fee-bar-label"><span>Default Probability</span><span style="font-weight:600;color:${feeColor}">${s.fee_prob}%</span></div>
+      <div class="fee-bar-track"><div class="fee-bar-fill" style="width:${s.fee_prob}%;background:${feeColor}"></div></div>
+    </div>
+  `;
+
+  if(chartInstance) chartInstance.destroy();
+  const labels=s.history.map(h=>h.date.slice(5));
+  const data=s.history.map(h=>h.is_present);
+  chartInstance=new Chart(document.getElementById('attChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:data.map(v=>v===1?'rgba(22,163,74,0.75)':'rgba(220,38,38,0.7)'),borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw===1?'Present':'Absent'}}},
+      scales:{y:{min:0,max:1,ticks:{callback:v=>v===1?'P':v===0?'A':'',color:'#94a3b8',stepSize:1},grid:{color:'#f1f5f9'}},x:{ticks:{color:'#94a3b8',maxRotation:45,font:{size:9}},grid:{display:false}}}}
+  });
+}
+
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+function handleOverlayClick(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+loadSummary();
+loadStudents();
+</script>
+</body>
+</html>

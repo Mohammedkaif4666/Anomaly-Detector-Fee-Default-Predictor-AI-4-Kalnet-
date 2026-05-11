@@ -1,97 +1,169 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import pandas as pd
+import numpy as np
 import joblib
 import os
 from typing import List
 
-app = FastAPI(title="KALNET AI Predictor API")
+app = FastAPI(title="KALNET AI-4")
 
-# Global variables for models and data
 models = {}
 features_db = {}
+students_cache = []
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMPLATES = os.path.join(ROOT, "templates")
+
+NAMES = [
+    "Aarav Sharma","Priya Patel","Rahul Gupta","Anjali Singh","Vikram Reddy",
+    "Sanya Iyer","Arjun Nair","Meera Joshi","Rohan Verma","Kavya Menon",
+    "Dev Malhotra","Isha Rao","Aditya Kumar","Pooja Bhat","Karan Mishra",
+    "Sneha Das","Harsh Agarwal","Riya Thakur","Nikhil Pandey","Divya Chauhan",
+]
 
 @app.on_event("startup")
-def load_models_and_data():
-    print("Loading models and features at startup...")
+def startup():
+    global students_cache
     try:
-        # Resolve paths relative to the project root
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
-        models['attendance'] = joblib.load(os.path.join(project_root, 'models/attendance_anomaly/model.pkl'))
-        models['attendance_scaler'] = joblib.load(os.path.join(project_root, 'models/attendance_anomaly/scaler.pkl'))
-        models['fee'] = joblib.load(os.path.join(project_root, 'models/fee_predictor/model.pkl'))
-        
-        # Load processed features
-        features_db['attendance'] = pd.read_csv(os.path.join(project_root, 'data/attendance_features.csv'))
-        features_db['fee'] = pd.read_csv(os.path.join(project_root, 'data/fee_features.csv'))
-        
-        print("Models and data loaded successfully.")
-    except Exception as e:
-        print(f"Error loading models or data: {e}")
+        models['att'] = joblib.load(os.path.join(ROOT, 'models/attendance_anomaly/model.pkl'))
+        models['scaler'] = joblib.load(os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl'))
+        models['fee'] = joblib.load(os.path.join(ROOT, 'models/fee_predictor/model.pkl'))
 
-@app.get("/")
-async def root():
+        att = pd.read_csv(os.path.join(ROOT, 'data/attendance_features.csv')).reset_index(drop=True)
+        fee = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv')).reset_index(drop=True)
+        features_db['att'] = att
+        features_db['fee'] = fee
+
+        X_att = att.drop(['student_id', 'is_anomaly'], axis=1).values
+        X_scaled = models['scaler'].transform(X_att)
+        att_preds = models['att'].predict(X_scaled)
+        att_scores = np.clip(100 * (1 - (models['att'].decision_function(X_scaled) + 0.5) / 1.0), 0, 100)
+
+        X_fee = fee.drop(['student_id', 'label'], axis=1).values
+        fee_probs = models['fee'].predict_proba(X_fee)[:, 2]
+
+        fee_map = {fee.loc[i, 'student_id']: {
+            'prob': float(fee_probs[i]),
+            'label': int(fee.loc[i, 'label']),
+            'outstanding': float(fee.loc[i, 'total_outstanding']),
+            'days_late': int(fee.loc[i, 'days_since_last_payment']),
+        } for i in range(len(fee))}
+
+        for i, row in att.iterrows():
+            sid = row['student_id']
+            num = int(sid.split('_')[1]) - 1
+            name = NAMES[num % len(NAMES)]
+            fd = fee_map.get(sid, {'prob': 0, 'label': 0, 'outstanding': 0, 'days_late': 0})
+            students_cache.append({
+                "id": sid,
+                "name": name,
+                "attendance_rate": round(float(row['attendance_rate']) * 100, 1),
+                "is_anomaly": bool(att_preds[i] == -1),
+                "risk_score": round(float(att_scores[i]), 1),
+                "absence_streak": int(row['longest_absence_streak']),
+                "absence_30d": int(row['absence_in_last_30_days']),
+                "fee_label": fd['label'],
+                "fee_prob": round(fd['prob'] * 100, 1),
+                "outstanding": fd['outstanding'],
+                "days_late": fd['days_late'],
+            })
+        print(f"✅ KALNET AI-4 ready — {len(students_cache)} students loaded.")
+    except Exception as e:
+        print(f"❌ Startup error: {e}")
+
+
+# ── Dashboard summary ──────────────────────────────────────────
+@app.get("/api/summary")
+def summary():
     return {
-        "project": "KALNET AI-4: Anomaly Detector & Fee Default Predictor",
-        "status": "Perfectly Ready",
-        "message": "The AI models are loaded and functioning. Use /docs to test endpoints.",
-        "aim": "Machine learning in real schools - Scikit-learn only."
+        "total": len(students_cache),
+        "anomalies": sum(1 for s in students_cache if s['is_anomaly']),
+        "fee_defaults": sum(1 for s in students_cache if s['fee_label'] == 2),
+        "fee_late": sum(1 for s in students_cache if s['fee_label'] == 1),
     }
 
+
+# ── Student list with optional search & filter ─────────────────
+@app.get("/api/students")
+def list_students(search: str = "", filter: str = "all"):
+    data = students_cache
+    if search:
+        q = search.lower()
+        data = [s for s in data if q in s['name'].lower() or q in s['id'].lower()]
+    if filter == "anomaly":
+        data = [s for s in data if s['is_anomaly']]
+    elif filter == "fee_risk":
+        data = [s for s in data if s['fee_label'] == 2]
+    elif filter == "safe":
+        data = [s for s in data if not s['is_anomaly'] and s['fee_label'] == 0]
+    return data
+
+
+# ── Individual student detail with 30-day history ──────────────
+@app.get("/api/student/{student_id}")
+def get_student(student_id: str):
+    s = next((x for x in students_cache if x['id'] == student_id), None)
+    if not s:
+        raise HTTPException(404, "Student not found")
+    raw_path = os.path.join(ROOT, 'data/attendance_raw.csv')
+    raw = pd.read_csv(raw_path)
+    hist = raw[raw['student_id'] == student_id].tail(30)
+    result = dict(s)
+    result['history'] = hist[['date', 'is_present']].to_dict('records')
+    return result
+
+
+# ── Original POST endpoints (kept intact) ─────────────────────
 class StudentRequest(BaseModel):
     student_ids: List[str]
 
+
 @app.post("/ai/anomalies")
-async def get_anomalies(request: StudentRequest):
-    if 'attendance' not in models:
-        raise HTTPException(status_code=503, detail="Attendance model not loaded")
-    
-    df_features = features_db['attendance'][features_db['attendance']['student_id'].isin(request.student_ids)]
-    if df_features.empty:
-        raise HTTPException(status_code=404, detail="Student IDs not found")
-    
-    X = df_features.drop(['student_id', 'is_anomaly'], axis=1)
-    X_scaled = models['attendance_scaler'].transform(X)
-    
-    y_pred = models['attendance'].predict(X_scaled)
-    decision_scores = models['attendance'].decision_function(X_scaled)
-    
-    risk_scores = 100 * (1 - (decision_scores + 0.5) / 1.0)
-    risk_scores = [round(float(s), 2) for s in risk_scores]
-    
+def get_anomalies(req: StudentRequest):
+    df = features_db['att'][features_db['att']['student_id'].isin(req.student_ids)]
+    if df.empty:
+        return {"results": []}
+    X = df.drop(['student_id', 'is_anomaly'], axis=1).values
+    Xs = models['scaler'].transform(X)
+    preds = models['att'].predict(Xs)
+    scores = np.clip(100 * (1 - (models['att'].decision_function(Xs) + 0.5) / 1.0), 0, 100)
     results = []
-    for i, (_, row) in enumerate(df_features.iterrows()):
+    for i, (_, row) in enumerate(df.iterrows()):
         results.append({
             "student_id": row['student_id'],
-            "risk_score": risk_scores[i],
-            "is_flagged": bool(y_pred[i] == -1),
-            "risk_level": "High" if risk_scores[i] > 70 else "Medium" if risk_scores[i] > 40 else "Low"
+            "risk_score": round(float(scores[i]), 2),
+            "is_flagged": bool(preds[i] == -1),
+            "risk_level": "High" if scores[i] > 70 else "Medium" if scores[i] > 40 else "Low",
         })
     return {"results": results}
 
+
 @app.post("/ai/fee-risk")
-async def get_fee_risk(request: StudentRequest):
-    if 'fee' not in models:
-        raise HTTPException(status_code=503, detail="Fee model not loaded")
-    
-    df_features = features_db['fee'][features_db['fee']['student_id'].isin(request.student_ids)]
-    if df_features.empty:
-        raise HTTPException(status_code=404, detail="Student IDs not found")
-    
-    X = df_features.drop(['student_id', 'label'], axis=1)
-    probs = models['fee'].predict_proba(X)
-    default_probs = probs[:, 2] 
-    
+def get_fee_risk(req: StudentRequest):
+    df = features_db['fee'][features_db['fee']['student_id'].isin(req.student_ids)]
+    if df.empty:
+        return {"results": []}
+    X = df.drop(['student_id', 'label'], axis=1).values
+    probs = models['fee'].predict_proba(X)[:, 2]
     results = []
-    for i, (_, row) in enumerate(df_features.iterrows()):
-        prob = float(default_probs[i])
+    for i, (_, row) in enumerate(df.iterrows()):
         results.append({
             "student_id": row['student_id'],
-            "default_probability": round(prob, 2),
-            "risk_category": "High" if prob > 0.6 else "Medium" if prob > 0.3 else "Low"
+            "default_probability": round(float(probs[i]), 2),
+            "risk_category": "High" if probs[i] > 0.6 else "Medium" if probs[i] > 0.3 else "Low",
         })
     return {"results": results}
+
+
+# ── Serve UI ───────────────────────────────────────────────────
+@app.get("/")
+def root():
+    return FileResponse(os.path.join(TEMPLATES, "index.html"))
+
+app.mount("/static", StaticFiles(directory=TEMPLATES), name="static")
 
 if __name__ == "__main__":
     import uvicorn
