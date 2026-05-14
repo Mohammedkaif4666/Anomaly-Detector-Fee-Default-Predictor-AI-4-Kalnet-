@@ -46,10 +46,12 @@ def engineer_features():
             'day_of_week_variance': dow_variance
         })
 
-    attendance_features = df_attendance.groupby('student_id').apply(get_attendance_features).reset_index()
+    attendance_features = df_attendance.groupby('student_id').apply(get_attendance_features, include_groups=False).reset_index()
     
-    # Merge with labels for training
-    attendance_features = attendance_features.merge(df_labels, on='student_id')
+    # Merge with labels for training — only take is_anomaly, NOT class (string column)
+    attendance_features = attendance_features.merge(
+        df_labels[['student_id', 'is_anomaly']], on='student_id'
+    )
     
     # --- FEE FEATURES ---
     print("Processing fee features...")
@@ -65,26 +67,27 @@ def engineer_features():
     
     fee_features_list = []
     for stu_id, group in df_fee.groupby('student_id'):
-        group = group.sort_values('term')
+        group = group.sort_values('term').reset_index(drop=True)
         
-        # Use Term 3 as the "target" status, and Terms 1-2 for features
-        # Or just use the overall profile features
-        
-        latest_record = group.iloc[-1]
-        prev_records = group.iloc[:-1]
-        
-        avg_days_late = prev_records['days_since_last_payment'].mean()
-        prev_status = prev_records['status'].max() # 0, 1, or 2
-        
+        # Term 3 is what we PREDICT. Terms 1-2 are what we use as FEATURES.
+        # Using the same term's data as features would leak the answer to the model.
+        latest_record = group.iloc[-1]   # Term 3 — the label we predict
+        prev_records  = group.iloc[:-1]  # Terms 1 & 2 — the historical features
+
+        # Features derived ONLY from past terms
+        avg_days_late       = prev_records['days_since_last_payment'].mean()
+        prev_status         = int(prev_records['status'].max())       # worst past status
+        avg_outstanding     = prev_records['total_outstanding'].mean() # avg past outstanding
+
         fee_features_list.append({
-            'student_id': stu_id,
-            'days_since_last_payment': latest_record['days_since_last_payment'],
-            'previous_term_status': prev_status,
-            'total_outstanding': latest_record['total_outstanding'],
-            'income_encoded': income_map[latest_record['family_income_bracket']],
-            'transport_user': latest_record['transport_user'],
-            'sibling_count': latest_record['sibling_count'],
-            'label': latest_record['status'] # We'll predict this status (0/1/2)
+            'student_id':               stu_id,
+            'days_since_last_payment':  round(avg_days_late, 1),      # past behaviour
+            'previous_term_status':     prev_status,                  # worst past term: 0/1/2
+            'total_outstanding':        round(avg_outstanding, 2),    # avg past outstanding
+            'income_encoded':           income_map[latest_record['family_income_bracket']],
+            'transport_user':           int(latest_record['transport_user']),
+            'sibling_count':            int(latest_record['sibling_count']),
+            'label':                    int(latest_record['status'])  # term 3 actual status
         })
         
     fee_features = pd.DataFrame(fee_features_list)

@@ -31,12 +31,11 @@ def train_attendance_model():
     y_pred = model.predict(X_scaled)
     y_pred = [1 if x == -1 else 0 for x in y_pred] # Convert to our label format
     
-    # Risk score: more negative is higher risk
+    # Risk score: decision_function returns negative for anomalies
+    # Normalize to 0-100 where 100 = highest risk (most anomalous)
+    # Formula kept consistent with API (jyothsna_lenka/main.py)
     decision_scores = model.decision_function(X_scaled)
-    # Normalize to 0-100 (where 100 is highest risk)
-    # decision_function returns values in roughly [-0.5, 0.5]
-    # Let's map it: higher risk score for more anomalous
-    risk_scores = 100 * (1 - (decision_scores - decision_scores.min()) / (decision_scores.max() - decision_scores.min()))
+    risk_scores = np.clip(100 * (1 - (decision_scores + 0.5) / 1.0), 0, 100)
     
     # Evaluate
     recall = recall_score(y_true, y_pred)

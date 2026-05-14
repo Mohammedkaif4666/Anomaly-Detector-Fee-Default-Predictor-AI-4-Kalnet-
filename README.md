@@ -6,6 +6,8 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green)](https://fastapi.tiangolo.com)
 [![Scikit-learn](https://img.shields.io/badge/Scikit--learn-1.3+-orange)](https://scikit-learn.org)
 
+> 📋 **See [`UPDATES.md`](UPDATES.md)** for a full log of all bug fixes and improvements made during development.
+
 ---
 
 ## 🎯 Project Vision
@@ -58,7 +60,8 @@ kalnet AI-4 team project/
 │   └── evaluate.py              # Evaluation metrics, reports, and model verification
 │
 ├── templates/
-│   └── index.html               # Frontend dashboard (HTML + CSS + JS in one file)
+│   ├── index.html               # Frontend dashboard — professional table layout
+│   └── style.css                # Separate CSS for clean table design
 │
 ├── data/                        # Generated CSVs (auto-created on first run)
 │   ├── attendance_raw.csv       # 72,000 rows: student_id, date, is_present
@@ -72,7 +75,8 @@ kalnet AI-4 team project/
 │   │   ├── model.pkl            # Trained IsolationForest
 │   │   └── scaler.pkl           # Fitted StandardScaler
 │   └── fee_predictor/
-│       └── model.pkl            # Trained GradientBoostingClassifier
+│       ├── model.pkl            # Trained GradientBoostingClassifier
+│       └── threshold.pkl        # Tuned decision threshold for ≥70% default recall
 │
 ├── docs/
 │   └── model_evaluation.md     # Auto-generated evaluation report
@@ -155,22 +159,26 @@ IsolationForest(contamination=0.1, n_estimators=100, random_state=42)
 
 ### Model 2 — Fee Default Prediction (Are Samhith)
 ```python
-GradientBoostingClassifier(n_estimators=100, random_state=42)
+GradientBoostingClassifier(n_estimators=200, learning_rate=0.08, max_depth=4, random_state=42)
 ```
 
 | Detail | Value |
 |--------|-------|
 | Algorithm | Gradient Boosting (supervised, multi-class) |
-| Input | 6 fee features |
+| Input | 6 fee features from **past terms only** (no leakage) |
 | Output | Class probabilities for On Time / Late / Default |
-| Split | 80/20 stratified (critical for 5% minority class) |
+| Split | 80/20 stratified (critical for minority default class) |
+| Sample Weights | 4× for default class to boost recall |
+| Threshold Tuning | Auto-tuned threshold saved to `threshold.pkl` |
 | Recall Target | ≥ 70% for Default class |
-| Achieved Recall | **~100%** ✅ |
+| Achieved Recall | **≥ 70%** ✅ |
+
+**Key Design:** Features use only historical (past terms 1 & 2) data to predict term 3 outcome — prevents data leakage that would cause artificially perfect but useless predictions.
 
 **Top Predictive Features:**
-1. `total_outstanding` — biggest signal of financial distress
-2. `days_since_last_payment` — overdue days strongly predict default
-3. `previous_term_status` — past behaviour predicts future
+1. `total_outstanding` — average past outstanding amount
+2. `days_since_last_payment` — average past days overdue
+3. `income_encoded` — Low income families at higher risk
 
 ---
 
@@ -240,30 +248,36 @@ python mohammed_kaif/feature_engineering.py
 ```
 > Generates `data/attendance_features.csv` and `data/fee_features.csv`
 
-### Step 5 — Train Models (Run Once)
+### Step 5 — Verify Data Quality (Rohith Koppu)
+```bash
+python rohith_koppu/verify.py
+```
+> Runs intuition checks on engineered features — NaN check, value ranges, label distribution, intuition checks (e.g., anomalous students should have lower attendance). All checks must pass before training.
+
+### Step 6 — Train Models (Run Once)
 ```bash
 python om_dattatray_wabale/train.py
 python are_samhith/train.py
 ```
-> Saves trained models to `models/attendance_anomaly/model.pkl` and `models/fee_predictor/model.pkl`
+> Saves trained models to `models/attendance_anomaly/` and `models/fee_predictor/`
 
-### Step 6 — Run Evaluation (Optional)
+### Step 7 — Run Evaluation (Optional but recommended)
 ```bash
 python vodyati_sai_phanindra/evaluate.py
 ```
 > Prints metrics to console and saves `docs/model_evaluation.md`
 
-### Step 7 — Start the Application
+### Step 8 — Start the Application
 ```bash
 uvicorn jyothsna_lenka.main:app --reload
 ```
 
-### Step 8 — Open the Dashboard
+### Step 9 — Open the Dashboard
 - **Frontend Dashboard:** `http://localhost:8000`
 - **Interactive API Docs:** `http://localhost:8000/docs`
 - **API JSON (direct):** `http://localhost:8000/api/summary`
 
-> **Note:** Steps 3–5 only need to be run **once**. After that, only Step 7 is needed to start the app.
+> **Note:** Steps 3–7 only need to be run **once**. After that, only Step 8 is needed to start the app.
 
 ---
 
@@ -271,14 +285,16 @@ uvicorn jyothsna_lenka.main:app --reload
 
 | Feature | Description |
 |---------|-------------|
-| **Live Stats** | Animated counters for total students, anomaly count, fee defaults, late payers |
-| **Student Grid** | 500 student cards with attendance rate, risk score, and badge indicators |
-| **Search** | Real-time search by student name or ID |
-| **Filter Pills** | Filter by: All / ⚠️ Anomalies / 💸 Fee Default / ✅ Safe |
-| **Student Modal** | Click any card → centered popup with full analysis |
+| **Live Stats** | Animated counters: total students, anomaly count, fee defaults, late payers |
+| **Student Table** | Clean rows with columns: Name, Class, Attendance, Risk Score, Fee Status, Default Prob, Overall |
+| **Pagination** | 20 students per page with navigation |
+| **Sorting** | Sort by risk score, attendance rate, or default probability |
+| **Search** | Real-time search by name or student ID |
+| **Filter Tabs** | All / ⚠️ Anomalies / 💸 Fee Default / ✅ Safe |
+| **Student Modal** | Click any row → centered popup with full analysis |
 | **Reason Boxes** | AI-generated explanation of WHY a student is flagged |
 | **30-Day Chart** | Chart.js bar chart — green = present, red = absent |
-| **Fee Analysis** | Default probability bar, outstanding amount, payment history |
+| **Fee Probability** | Varied probabilities (e.g., 4%, 23%, 67%) — not just 0% or 100% |
 | **Responsive** | Works on mobile, tablet, and desktop |
 
 ---
@@ -307,8 +323,8 @@ Quick reference:
 
 | Model | Metric | Target | Result |
 |-------|--------|--------|--------|
-| IsolationForest | Recall (Anomaly) | ≥ 60% | **~63% ✅** |
-| GradientBoosting | Recall (Default) | ≥ 70% | **~100% ✅** |
+| IsolationForest | Recall (Anomaly) | ≥ 60% | **63% ✅** |
+| GradientBoosting | Recall (Default) | ≥ 70% | **≥ 70% ✅** |
 
 Full report: [`docs/model_evaluation.md`](docs/model_evaluation.md)
 

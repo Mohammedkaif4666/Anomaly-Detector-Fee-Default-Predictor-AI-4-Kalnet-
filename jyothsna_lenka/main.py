@@ -31,6 +31,8 @@ def startup():
         models['att'] = joblib.load(os.path.join(ROOT, 'models/attendance_anomaly/model.pkl'))
         models['scaler'] = joblib.load(os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl'))
         models['fee'] = joblib.load(os.path.join(ROOT, 'models/fee_predictor/model.pkl'))
+        thresh_path = os.path.join(ROOT, 'models/fee_predictor/threshold.pkl')
+        models['fee_thresh'] = joblib.load(thresh_path) if os.path.exists(thresh_path) else 0.5
 
         att = pd.read_csv(os.path.join(ROOT, 'data/attendance_features.csv')).reset_index(drop=True)
         fee = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv')).reset_index(drop=True)
@@ -43,23 +45,46 @@ def startup():
         att_scores = np.clip(100 * (1 - (models['att'].decision_function(X_scaled) + 0.5) / 1.0), 0, 100)
 
         X_fee = fee.drop(['student_id', 'label'], axis=1).values
-        fee_probs = models['fee'].predict_proba(X_fee)[:, 2]
+        fee_proba_all = models['fee'].predict_proba(X_fee)
+        default_col = list(models['fee'].classes_).index(2)
+        fee_probs = fee_proba_all[:, default_col]
+        fee_thresh = models.get('fee_thresh', 0.5)
+        # Use threshold-adjusted labels so UI badges match model decisions
+        fee_labels_pred = np.where(fee_probs >= fee_thresh, 2,
+                          np.argmax(fee_proba_all[:, [i for i in range(fee_proba_all.shape[1]) if i != default_col]], axis=1))
+        fee_classes_no_default = [c for c in models['fee'].classes_ if c != 2]
+        fee_labels_adjusted = []
+        for lp in fee_labels_pred:
+            if lp == 2:
+                fee_labels_adjusted.append(2)
+            else:
+                fee_labels_adjusted.append(int(fee_classes_no_default[lp]))
 
         fee_map = {fee.loc[i, 'student_id']: {
             'prob': float(fee_probs[i]),
-            'label': int(fee.loc[i, 'label']),
+            'label': int(fee_labels_adjusted[i]),
             'outstanding': float(fee.loc[i, 'total_outstanding']),
             'days_late': int(fee.loc[i, 'days_since_last_payment']),
         } for i in range(len(fee))}
+
+        # Load class info if available
+        labels_path = os.path.join(ROOT, 'data/student_labels.csv')
+        class_map = {}
+        if os.path.exists(labels_path):
+            labels_df = pd.read_csv(labels_path)
+            if 'class' in labels_df.columns:
+                class_map = dict(zip(labels_df['student_id'], labels_df['class']))
 
         for i, row in att.iterrows():
             sid = row['student_id']
             num = int(sid.split('_')[1]) - 1
             name = NAMES[num % len(NAMES)]
             fd = fee_map.get(sid, {'prob': 0, 'label': 0, 'outstanding': 0, 'days_late': 0})
+            classes = ["6A","6B","7A","7B","8A","8B","9A","9B","10A","10B"]
             students_cache.append({
                 "id": sid,
                 "name": name,
+                "student_class": class_map.get(sid, classes[num % len(classes)]),
                 "attendance_rate": round(float(row['attendance_rate']) * 100, 1),
                 "is_anomaly": bool(att_preds[i] == -1),
                 "risk_score": round(float(att_scores[i]), 1),
