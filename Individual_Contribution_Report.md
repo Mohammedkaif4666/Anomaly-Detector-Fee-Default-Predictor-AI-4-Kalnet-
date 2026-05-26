@@ -71,13 +71,18 @@ This document provides a detailed breakdown of the technical contributions made 
 
 ### Key Responsibilities:
 *   **Model Deployment:** Wrapped complex Python models into a high-performance REST API.
-*   **System Integration:** Ensured the AI backend could talk to the frontend Admin Dashboard.
+*   **System Integration & Controls:** Ensured the AI backend maps to both the frontend Directory page and the interactive Admin Analytics dashboard.
 
 ### Technical Implementation:
-*   **Script:** `jyothsna_lenka/app.py`
+*   **Script:** `jyothsna_lenka/main.py`
 *   **Framework:** **FastAPI**.
-*   **Efficiency:** Designed an **Asynchronous Startup Handler** that loads models into RAM exactly once. This prevents the server from slowing down during requests.
-*   **Endpoints:** Developed `POST /ai/anomalies` and `POST /ai/fee-risk`, capable of processing batches of student IDs and returning JSON data including risk levels ("High", "Medium", "Low").
+*   **Efficiency:** Designed an **Asynchronous Startup Handler** that loads models and datasets into memory RAM exactly once. This prevents the server from doing inference on every request, reducing query latency to < 10ms.
+*   **Endpoints:** Developed core endpoints:
+    - `GET /api/summary` (header counters)
+    - `GET /api/students` (paginated list with filters)
+    - `GET /api/student/{id}` (full detail + history data)
+    - `GET /api/analytics` (aggregates chart inputs, returns full sorted risk list for frontend limit controls)
+    - `POST /ai/anomalies` and `POST /ai/fee-risk` (batch inference APIs)
 
 ---
 
@@ -95,13 +100,17 @@ This document provides a detailed breakdown of the technical contributions made 
 
 ---
 
-## 7. Post-Release Enhancements (CEO Review)
-**Phase:** UI/UX Overhaul & Enterprise Security *(May 2026)*
+## 7. Post-Release Enhancements (CEO Review & Admin Interactivity)
+**Phase:** UI/UX Overhaul, Admin Interactivity, & Enterprise Security *(May 2026)*
 
-After presenting the initial build to the CEO, the team executed a rapid UX/UI and security overhaul to make the product market-ready.
+Following review and administrative expansion, the platform was upgraded to support market deployment and full admin control capabilities.
 
 ### Key Enhancements Delivered:
 *   **Marketing Landing Page:** A new `landing.html` acting as the public face of KALNET AI-4.
 *   **Admin Analytics Dashboard:** A comprehensive, secure `/dashboard` featuring system health gauges, Chart.js visualizations, and live activity feeds.
+*   **Interactive Chart Segments:** Click handlers on all visual segments (risk donuts, status donuts, attendance histograms, and class bars) that trigger popups displaying actual matching students.
+*   **Double Modal Overlays:** Enabled inspection of student details directly within segment tables using staggered z-index modal layers (`500` and `600`), maintaining context navigation.
+*   **Dynamic Limit Selector:** Integrated a dropdown selector for the high-risk student list, enabling administrators to toggle limits (10, 20, 30, 50, all) dynamically.
+*   **Global Student Search lookup:** Autocomplete search input on the navbar topbar, supporting rapid search suggestions linked directly to student profiles.
 *   **Unified Responsive Navigation:** Replaced fragmented menus with a `global-nav` component that intelligently snaps to a mobile bottom-bar on screens under 640px, ensuring flawless navigation across all devices.
 *   **Hardcoded API Security:** Protected the sensitive Admin Dashboard using HTTP Basic Authentication (`admin` / `kalnet2026`), easily configurable via a toggle in `main.py`.

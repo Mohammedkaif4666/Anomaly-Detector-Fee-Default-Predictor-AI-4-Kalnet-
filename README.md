@@ -285,18 +285,21 @@ uvicorn jyothsna_lenka.main:app --reload
 
 ---
 
-## 🖥️ Platform Interfaces (CEO Review Updates)
+## 🖥️ Platform Interfaces (CEO Review & Admin Enhancements)
 
-> *After consulting the CEO, the platform was overhauled to be market-ready with premium aesthetics, full mobile responsiveness, and enterprise-grade navigation.*
+> *Following feedback from the CEO, the platform was overhauled to be market-ready. Further enhancements to the Admin page have given administrators full control and interactive inspection capabilities directly from the Analytics view.*
 
 | Interface | Description |
 |-----------|-------------|
 | **Marketing Landing Page** | High-conversion entry point with live ML statistics, feature overviews, and team details. |
-| **Admin Analytics Dashboard** | Secure, authenticated dashboard featuring real-time KPI cards, Chart.js visualizations, class breakdowns, and system health gauges. |
-| **Student Directory Table** | Clean rows with columns: Name, Class, Attendance, Risk Score, Fee Status, Default Prob, Overall. Features pagination, sorting, search, and filter tabs. |
-| **Unified Navigation** | A persistent `global-nav` shared across all pages. On mobile devices, it intelligently snaps to a sticky bottom-bar for effortless thumb navigation. |
-| **Student Modal** | Click any row → centered popup with full analysis, AI-generated reason boxes, and a 30-day Chart.js bar chart. |
-| **Admin Security** | The `/dashboard` route is protected by HTTP Basic Authentication. Easily toggled via the `REQUIRE_ADMIN_AUTH` flag in `main.py`. |
+| **Admin Analytics Dashboard** | Secure dashboard with real-time KPIs, system health gauge, model metrics, and active notifications. |
+| **Interactive Chart Segments** | All Chart.js segments (risk levels, fee default status, attendance buckets, class sections) are clickable. Opens a popup modal containing a real, live student list matching that segment. |
+| **Double Modal Layering** | Clicking a student in any popup list inside the admin page opens their full student details card (30-day attendance chart, AI reason explanations) directly on top of the list modal, without context switching. |
+| **Dynamic Top N Table** | Dynamic row limits (Top 10, 20, 30, 50, all) for highest-risk students can be adjusted on the fly. |
+| **Autocomplete Student Lookup** | Global search input in the top navigation bar for immediate student lookups from anywhere on the admin page. |
+| **Student Directory Table** | Clean rows with pagination, sorting, search, and filter tabs at `/students`. |
+| **Unified Navigation** | Persistent `global-nav` that snaps to a bottom bar on mobile screens. |
+| **Admin Security** | Secure `/dashboard` protected by Basic Authentication (`admin` / `kalnet2026`). Configurable via `REQUIRE_ADMIN_AUTH` in `main.py`. |
 
 ---
 

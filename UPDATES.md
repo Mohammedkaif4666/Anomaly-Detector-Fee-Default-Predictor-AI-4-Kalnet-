@@ -4,6 +4,31 @@
 
 ---
 
+## Update 4 — Admin Dashboard Interactive Overhaul & Controls *(26 May 2026)*
+
+> *This update adds interactive analysis capabilities and robust administrative controls directly to the Analytics page so the admin can manage everything without page jumping.*
+
+### 📊 Interactive Charts & Dynamic Segment Lists
+- Configured click handlers on all 4 Chart.js charts (`riskChart`, `feeChart`, `attHistChart`, `classChart`).
+- Clicking on any pie slice or bar filters and displays a popup table containing the actual students matching that segment, complete with detailed descriptors.
+
+### 🗂️ Staggered Double Modals
+- Created a separate modal overlay for student segment lists and single student profile details.
+- Clicking a student in a segment list modal overlays their complete profile modal (attendance chart, streak, outstanding amount, and AI predictions) directly on top. Closing it returns the admin back to the segment list.
+
+### ⚙️ Customizable High-Risk Limits
+- Added a Top N configuration selector (dropdown menu) directly inside the High-Risk table card.
+- Allows admins to instantly change table rows between 10, 20, 30, 50, or Show All, calculated in memory without page refreshes.
+
+### 🔍 Autocomplete Global Navbar Search
+- Added a student lookup input in the top header navbar on `/dashboard`.
+- Performs quick lookups as you type, highlighting matched student names and IDs. Suggestions link directly to the student profile detail modal.
+
+### 🧹 Deprecated Files Cleanup
+- Marked deprecated `app.py` and `verify_endpoints.py` files as deleted (recommend manual IDE deletion due to host shell permissions).
+
+---
+
 ## Update 3 — CEO Review: UX Overhaul & Security *(26 May 2026)*
 
 > *These updates were implemented after consulting the CEO to ensure the product is market-ready, visually stunning, and highly secure.*

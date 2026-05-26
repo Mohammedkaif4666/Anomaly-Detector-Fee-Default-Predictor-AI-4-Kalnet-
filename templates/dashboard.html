@@ -74,6 +74,14 @@
   <!-- Top Navbar -->
   <nav class="global-nav" style="position: sticky; z-index: 100;">
     <div class="gn-brand" style="visibility: hidden; width: 0;"></div> <!-- Hidden for sidebar layout -->
+    
+    <!-- Quick Student Lookup Search Bar -->
+    <div class="search-wrap" style="margin-left: 0; margin-right: auto;">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="globalStudentSearch" placeholder="Quick student lookup..." oninput="handleGlobalSearch(this.value)" onfocus="document.getElementById('searchSuggestions').style.display='block'" onblur="setTimeout(() => { document.getElementById('searchSuggestions').style.display='none'; }, 200);">
+      <div class="search-suggestions" id="searchSuggestions"></div>
+    </div>
+
     <div class="gn-links" style="margin-left: auto;">
       <a class="gn-btn" href="/">🏠 Home</a>
       <a class="gn-btn" href="/students">👥 Students</a>
@@ -232,14 +240,23 @@
     <!-- ── Top Risk Students + Activity Feed ────────────────── -->
     <div class="charts-row-2">
 
-      <!-- Top 10 High-Risk Students Table -->
+      <!-- Top High-Risk Students Table -->
       <div class="table-card">
         <div class="table-card-header">
           <div>
-            <h3>Top 10 Highest-Risk Students</h3>
+            <h3 id="topRiskTitle">Top 10 Highest-Risk Students</h3>
             <p>Ranked by combined attendance + fee risk score</p>
           </div>
-          <a class="table-link" href="/students">View All →</a>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <select id="topRiskLimit" style="padding: 6px 12px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; color: var(--text-muted); background: #fff; cursor: pointer; outline: none;" onchange="updateTopRiskTable(this.value)">
+              <option value="10">Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="30">Top 30</option>
+              <option value="50">Top 50</option>
+              <option value="all">Show All</option>
+            </select>
+            <a class="table-link" href="/students">View All →</a>
+          </div>
         </div>
         <div id="topRiskBody">
           <div class="spinner"></div>
@@ -289,12 +306,66 @@
   </div><!-- /page-body -->
 </main><!-- /content -->
 
+<!-- MODAL STRUCTURES -->
+<!-- 1. Segment Students Modal -->
+<div class="modal-overlay" id="segmentModalOverlay" onclick="if(event.target===this)closeSegmentModal()">
+  <div class="modal large">
+    <div class="modal-header">
+      <div>
+        <h2 id="segTitle">Segment Details</h2>
+        <p id="segSubtitle">Loading segment explanation...</p>
+      </div>
+      <button class="close-btn" onclick="closeSegmentModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="segment-desc" id="segDesc"></div>
+      <div style="overflow-x:auto;">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Class</th>
+              <th>Attendance</th>
+              <th>Risk Score</th>
+              <th>Fee Status</th>
+              <th>Default Prob</th>
+              <th style="width: 80px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="segTableBody">
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Single Student Profile Detail Modal -->
+<div class="modal-overlay" id="studentModalOverlay" style="z-index: 600;" onclick="if(event.target===this)closeStudentModal()">
+  <div class="modal medium">
+    <div class="modal-header">
+      <div>
+        <h2 id="mName"></h2>
+        <p id="mSub"></p>
+      </div>
+      <button class="close-btn" onclick="closeStudentModal()">✕</button>
+    </div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
 <script>
 /* ══════════════════════════════════════════════════════════════
    KALNET AI-4 — Admin Dashboard JavaScript
    Fetches from /api/summary and /api/analytics, renders charts
    All existing API endpoints are consumed read-only.
 ══════════════════════════════════════════════════════════════ */
+
+/* Global Data Cache */
+let allStudents = [];
+let topRiskStudents = [];
+let studentChartInst = null;
 
 /* Chart.js global defaults */
 Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
@@ -345,17 +416,21 @@ function makeLegend(containerId, items) {
 /* ── Main data load ─────────────────────────────────────────── */
 async function loadDashboard() {
   try {
-    const [summary, analytics] = await Promise.all([
+    const [summary, analytics, students] = await Promise.all([
       fetch('/api/summary').then(r => r.json()),
       fetch('/api/analytics').then(r => r.json()),
+      fetch('/api/students').then(r => r.json()),
     ]);
+    allStudents = students;
+    topRiskStudents = analytics.top_risk_students;
+    
     renderKPIs(summary, analytics);
     renderRiskChart(analytics.risk_distribution);
     renderFeeChart(analytics.fee_distribution);
     renderAttHistChart(analytics.attendance_histogram);
     renderClassChart(analytics.class_breakdown);
     renderHealthGauge(analytics.system_health, analytics);
-    renderTopRisk(analytics.top_risk_students);
+    renderTopRisk(analytics.top_risk_students.slice(0, 10));
     renderActivity(analytics.recent_activity);
     renderClassTable(analytics.class_breakdown);
   } catch(err) {
@@ -400,6 +475,32 @@ function renderRiskChart(dist) {
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} students` } }
+      },
+      onHover: (evt, activeElements) => {
+        evt.chart.canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const index = elements[0].index;
+        const labels = ['High Risk', 'Medium Risk', 'Low Risk'];
+        const label = labels[index];
+        
+        let title, desc, filtered;
+        if (label === 'High Risk') {
+          title = 'High Anomaly Risk Students';
+          desc = '<strong>IsolationForest Anomaly Alert:</strong> These students have an anomaly risk score higher than 70%. This indicates severe deviation in attendance patterns, such as sudden multi-day drop streaks or unexplained absences.';
+          filtered = allStudents.filter(s => s.risk_score > 70);
+        } else if (label === 'Medium Risk') {
+          title = 'Medium Anomaly Risk Students';
+          desc = '<strong>Monitoring Needed:</strong> These students have an anomaly risk score between 40% and 70%. Their attendance patterns are showing early warning signs of irregularity.';
+          filtered = allStudents.filter(s => s.risk_score > 40 && s.risk_score <= 70);
+        } else {
+          title = 'Low Anomaly Risk Students';
+          desc = '<strong>Safe Category:</strong> These students have stable, predictable attendance patterns under 40% risk score. Their behaviors conform to standard school parameters.';
+          filtered = allStudents.filter(s => s.risk_score <= 40);
+        }
+        
+        openSegmentModal(title, `${filtered.length} students in this segment`, desc, filtered);
       }
     }
   });
@@ -431,6 +532,32 @@ function renderFeeChart(dist) {
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} students` } }
+      },
+      onHover: (evt, activeElements) => {
+        evt.chart.canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const index = elements[0].index;
+        const labels = ['On Time', 'Late', 'Default'];
+        const label = labels[index];
+        
+        let title, desc, filtered;
+        if (label === 'On Time') {
+          title = 'On-Time Fee Payments';
+          desc = '<strong>Normal Payment Status:</strong> Students who have completed their tuition fee payments on time or have negligible outstanding amounts.';
+          filtered = allStudents.filter(s => s.fee_label === 0);
+        } else if (label === 'Late') {
+          title = 'Late Fee Payments';
+          desc = '<strong>Grace Period / Outstanding:</strong> Students whose payments are overdue or delayed by a few weeks. Early warning indicator for default risk.';
+          filtered = allStudents.filter(s => s.fee_label === 1);
+        } else {
+          title = 'Fee Defaults';
+          desc = '<strong>GradientBoosting Default Alert:</strong> Students classified by the machine learning model as defaulted due to severe payment delays (typically > 45 days) and high outstanding balances.';
+          filtered = allStudents.filter(s => s.fee_label === 2);
+        }
+        
+        openSegmentModal(title, `${filtered.length} students in this segment`, desc, filtered);
       }
     }
   });
@@ -466,6 +593,28 @@ function renderAttHistChart(hist) {
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: c => ` ${c.raw} students` } }
+      },
+      onHover: (evt, activeElements) => {
+        evt.chart.canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const index = elements[0].index;
+        const buckets = hist.map(h => h.bucket);
+        const bucket = buckets[index];
+        
+        let title = `Attendance Rate: ${bucket}`;
+        let desc = `List of students whose overall attendance falls in the range of ${bucket}. Attendance rates below 75% are highlighted for intervention.`;
+        let filtered;
+        
+        if (bucket === '0-50%') filtered = allStudents.filter(s => s.attendance_rate < 50);
+        else if (bucket === '50-60%') filtered = allStudents.filter(s => s.attendance_rate >= 50 && s.attendance_rate < 60);
+        else if (bucket === '60-70%') filtered = allStudents.filter(s => s.attendance_rate >= 60 && s.attendance_rate < 70);
+        else if (bucket === '70-80%') filtered = allStudents.filter(s => s.attendance_rate >= 70 && s.attendance_rate < 80);
+        else if (bucket === '80-90%') filtered = allStudents.filter(s => s.attendance_rate >= 80 && s.attendance_rate < 90);
+        else filtered = allStudents.filter(s => s.attendance_rate >= 90);
+        
+        openSegmentModal(title, `${filtered.length} students in this range`, desc, filtered);
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 11 } } },
@@ -508,6 +657,37 @@ function renderClassChart(classData) {
       plugins: {
         legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16 } },
         tooltip: { mode: 'index', intersect: false }
+      },
+      onHover: (evt, activeElements) => {
+        evt.chart.canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const activeElement = elements[0];
+        const index = activeElement.index;
+        const datasetIndex = activeElement.datasetIndex;
+        
+        const classes = classData.map(c => c.class);
+        const className = classes[index];
+        
+        const categories = ['Anomalies', 'Fee Defaults', 'Late Payers'];
+        const category = categories[datasetIndex];
+        
+        let title = `${className} — ${category}`;
+        let desc, filtered;
+        
+        if (category === 'Anomalies') {
+          desc = `<strong>Class ${className} Attendance Anomalies:</strong> Students in class section ${className} who are currently flagged by the IsolationForest model as showing anomalous attendance behavior.`;
+          filtered = allStudents.filter(s => s.student_class === className && s.is_anomaly);
+        } else if (category === 'Fee Defaults') {
+          desc = `<strong>Class ${className} Fee Defaults:</strong> Students in class section ${className} flagged for severe fee payment default (default status predicted by model).`;
+          filtered = allStudents.filter(s => s.student_class === className && s.fee_label === 2);
+        } else {
+          desc = `<strong>Class ${className} Late Payers:</strong> Students in class section ${className} whose fee payments are currently overdue or late.`;
+          filtered = allStudents.filter(s => s.student_class === className && s.fee_label === 1);
+        }
+        
+        openSegmentModal(title, `${filtered.length} students in this category`, desc, filtered);
       },
       scales: {
         x: { grid: { display: false } },
@@ -575,7 +755,7 @@ function renderTopRisk(students) {
     const fc   = s.fee_prob   > 60 ? 'fill-red' : s.fee_prob   > 25 ? 'fill-amber' : 'fill-green';
     const flab = ['ontime','late','default'][s.fee_label] || 'ontime';
     const ftxt = ['On Time','Late','Default'][s.fee_label] || 'On Time';
-    return `<tr>
+    return `<tr class="clickable-row" onclick="openStudentModal('${s.id}')">
       <td>
         <div class="td-student">
           <div class="td-avatar">${ini}</div>
@@ -642,7 +822,7 @@ function renderActivity(items) {
   }
   el.innerHTML = items.map(a => {
     const isAnom = a.type === 'Attendance Anomaly';
-    return `<div class="activity-item">
+    return `<div class="activity-item clickable-row" style="cursor:pointer;" onclick="openStudentModal('${a.id}')">
       <div class="activity-dot ${isAnom ? 'anomaly' : 'default'}">
         ${isAnom ? '⚠️' : '💸'}
       </div>
@@ -707,6 +887,242 @@ function showError() {
     if (el) el.textContent = '—';
   });
 }
+
+/* ── Segment Modal Controls ────────────────────────────────── */
+function openSegmentModal(title, subtitle, desc, filteredStudents) {
+  document.getElementById('segTitle').textContent = title;
+  document.getElementById('segSubtitle').textContent = subtitle;
+  document.getElementById('segDesc').innerHTML = desc;
+  
+  const tbody = document.getElementById('segTableBody');
+  if (!filteredStudents || filteredStudents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;">No students match this category.</td></tr>';
+  } else {
+    tbody.innerHTML = filteredStudents.map(s => {
+      const ini = s.name.split(' ').map(w => w[0]).join('').slice(0, 2);
+      const rc = s.risk_score > 70 ? 'badge anomaly' : s.risk_score > 40 ? 'badge default' : 'badge safe';
+      const rl = s.risk_score > 70 ? 'High' : s.risk_score > 40 ? 'Medium' : 'Low';
+      const flab = ['ontime', 'late', 'default'][s.fee_label] || 'ontime';
+      const ftxt = ['On Time', 'Late', 'Default'][s.fee_label] || 'On Time';
+      return `<tr class="clickable-row" onclick="openStudentModal('${s.id}')">
+        <td>
+          <div class="td-student">
+            <div class="td-avatar">${ini}</div>
+            <div>
+              <div class="td-name">${s.name}</div>
+              <div class="td-id">${s.id}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="badge" style="background:#f1f5f9;color:#64748b;font-weight:500;">${s.student_class || '—'}</span></td>
+        <td>
+          <div class="mini-prog-wrap">
+            <span style="font-weight:600;">${s.attendance_rate}%</span>
+          </div>
+        </td>
+        <td><span class="${rc}">${rl} (${s.risk_score})</span></td>
+        <td><span class="badge ${flab}">${ftxt}</span></td>
+        <td>
+          <div class="mini-prog-wrap">
+            <div class="mini-prog-track" style="width:60px;">
+              <div class="mini-prog-fill ${s.fee_prob > 60 ? 'fill-red' : s.fee_prob > 25 ? 'fill-amber' : 'fill-green'}" style="width:${Math.min(s.fee_prob, 100)}%"></div>
+            </div>
+            <span style="font-weight:600;font-size:12px;">${s.fee_prob}%</span>
+          </div>
+        </td>
+        <td><button class="table-link" style="border:none;cursor:pointer;font-size:11px;" onclick="event.stopPropagation();openStudentModal('${s.id}')">View</button></td>
+      </tr>`;
+    }).join('');
+  }
+  
+  document.getElementById('segmentModalOverlay').classList.add('show');
+}
+
+function closeSegmentModal() {
+  document.getElementById('segmentModalOverlay').classList.remove('show');
+}
+
+/* ── Student Modal Details & Reasons ───────────────────────── */
+function reasons(s) {
+  const a = [], f = [];
+  if (s.is_anomaly) {
+    if (s.attendance_rate < 50) a.push(`Critical attendance at ${s.attendance_rate}% — far below the 75% safe threshold. IsolationForest flagged this as a severe anomaly.`);
+    else if (s.attendance_rate < 70) a.push(`Attendance dropped to ${s.attendance_rate}%, triggering the anomaly detection model.`);
+    else a.push(`Despite ${s.attendance_rate}% overall, the absence pattern is irregular — a sudden recent drop was detected.`);
+    if (s.absence_streak >= 5) a.push(`${s.absence_streak}-day consecutive absence streak detected — possible family crisis or health issue.`);
+    if (s.absence_30d >= 8) a.push(`${s.absence_30d} absences in the last 30 days — sharp recent deterioration.`);
+  }
+  if (s.fee_label === 2) {
+    f.push(`Student has defaulted with ₹${s.outstanding.toLocaleString()} outstanding.`);
+    if (s.days_late > 30) f.push(`Payment is ${s.days_late} days overdue — confirmed default.`);
+  } else if (s.fee_label === 1) {
+    f.push(`Late payment pattern — ${s.days_late} days since last payment.`);
+  }
+  if (s.fee_prob > 15 && s.fee_label < 2) f.push(`AI predicts ${s.fee_prob}% chance of future default — early intervention recommended.`);
+  return { a, f };
+}
+
+async function openStudentModal(id) {
+  document.getElementById('studentModalOverlay').classList.add('show');
+  document.getElementById('mBody').innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+  
+  const s = await fetch(`/api/student/${id}`).then(r => r.json());
+  document.getElementById('mName').textContent = s.name;
+  document.getElementById('mSub').textContent = `${s.id} · ${s.student_class || ''}`;
+  
+  const { a, f } = reasons(s);
+  const ac2 = s.attendance_rate >= 80 ? '#16a34a' : s.attendance_rate >= 60 ? '#d97706' : '#dc2626';
+  const rc2 = s.risk_score > 70 ? '#dc2626' : s.risk_score > 40 ? '#d97706' : '#16a34a';
+  const fc2 = ['#16a34a', '#d97706', '#dc2626'][s.fee_label];
+  const fs = ['On Time 🟢', 'Late 🟡', 'Default 🔴'][s.fee_label];
+  
+  let rhtml = '';
+  if (a.length) rhtml += `<div class="reason-box danger"><h4>⚠️ Attendance Anomaly Reason</h4>${a.map(x => `<p>• ${x}</p>`).join('')}</div>`;
+  if (f.length) rhtml += `<div class="reason-box ${s.fee_label === 2 ? 'danger' : 'warn'}"><h4>${s.fee_label === 2 ? '🔴 Fee Default Reason' : '🟡 Fee Warning'}</h4>${f.map(x => `<p>• ${x}</p>`).join('')}</div>`;
+  if (!a.length && !f.length) rhtml = '<div class="reason-box ok"><h4>✅ No Risk Detected</h4><p>This student has normal attendance and payment patterns.</p></div>';
+  
+  document.getElementById('mBody').innerHTML = `
+    ${rhtml}
+    <div class="big-ring">
+      <div class="ring-stat">
+        <div class="big" style="color:${ac2}">${s.attendance_rate}%</div>
+        <div class="desc">Attendance</div>
+      </div>
+      <div class="ring-stat">
+        <div class="big" style="color:${rc2}">${s.risk_score}</div>
+        <div class="desc">Risk /100</div>
+      </div>
+      <div class="ring-stat">
+        <div class="big" style="color:${fc2}">${s.fee_prob}%</div>
+        <div class="desc">Default Prob</div>
+      </div>
+    </div>
+    <div class="sec-title">📋 Attendance</div>
+    <div class="info-row"><span class="lbl">Status</span><span class="val">${s.is_anomaly ? '⚠️ Flagged' : '✅ Normal'}</span></div>
+    <div class="info-row"><span class="lbl">Longest Absence Streak</span><span class="val">${s.absence_streak} days</span></div>
+    <div class="info-row"><span class="lbl">Absences (Last 30 Days)</span><span class="val">${s.absence_30d}</span></div>
+    <div class="sec-title">📅 Last 30 Days</div>
+    <div class="chart-wrap"><canvas id="attChartDetail"></canvas></div>
+    <div class="sec-title">💰 Fees</div>
+    <div class="info-row"><span class="lbl">Payment Status</span><span class="val">${fs}</span></div>
+    <div class="info-row"><span class="lbl">Outstanding</span><span class="val">₹${s.outstanding.toLocaleString()}</span></div>
+    <div class="info-row"><span class="lbl">Days Since Payment</span><span class="val">${s.days_late}</span></div>
+    <div class="fee-bar">
+      <div class="fee-bar-label">
+        <span>Default Probability</span>
+        <span style="font-weight:600;color:${fc2}">${s.fee_prob}%</span>
+      </div>
+      <div class="fee-track">
+        <div class="fee-fill" style="width:${Math.min(s.fee_prob, 100)}%;background:${fc2}"></div>
+      </div>
+    </div>
+  `;
+  
+  if (studentChartInst) studentChartInst.destroy();
+  const lbl = s.history.map(h => h.date.slice(5));
+  const dt = s.history.map(h => h.is_present);
+  
+  studentChartInst = new Chart(document.getElementById('attChartDetail'), {
+    type: 'bar',
+    data: {
+      labels: lbl,
+      datasets: [{
+        data: dt,
+        backgroundColor: dt.map(v => v ? 'rgba(22, 163, 74, .7)' : 'rgba(220, 38, 38, .7)'),
+        borderRadius: 3,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => c.raw ? 'Present' : 'Absent' } }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 1,
+          ticks: {
+            callback: v => v === 1 ? 'P' : v === 0 ? 'A' : '',
+            stepSize: 1
+          },
+          grid: { color: '#f1f5f9' }
+        },
+        x: {
+          ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 8 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+function closeStudentModal() {
+  document.getElementById('studentModalOverlay').classList.remove('show');
+  if (studentChartInst) studentChartInst.destroy();
+}
+
+/* ── Top Risk limit configuration ──────────────────────────── */
+function updateTopRiskTable(limit) {
+  let parsedLimit = 10;
+  if (limit === 'all') parsedLimit = topRiskStudents.length;
+  else parsedLimit = parseInt(limit, 10);
+  
+  document.getElementById('topRiskTitle').textContent = `Top ${limit === 'all' ? topRiskStudents.length : limit} Highest-Risk Students`;
+  
+  const sliced = topRiskStudents.slice(0, parsedLimit);
+  renderTopRisk(sliced);
+}
+
+/* ── Global autocomplete lookup search ─────────────────────── */
+function handleGlobalSearch(query) {
+  const suggestionsBox = document.getElementById('searchSuggestions');
+  if (!query.trim()) {
+    suggestionsBox.innerHTML = '';
+    suggestionsBox.style.display = 'none';
+    return;
+  }
+  
+  const q = query.toLowerCase();
+  const matched = allStudents.filter(s => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)).slice(0, 10);
+  
+  if (matched.length === 0) {
+    suggestionsBox.innerHTML = '<div style="padding:12px;color:#94a3b8;font-size:13px;text-align:center;">No students found</div>';
+  } else {
+    suggestionsBox.innerHTML = matched.map(s => {
+      const ini = s.name.split(' ').map(w => w[0]).join('').slice(0, 2);
+      const isAnom = s.is_anomaly;
+      const isDef = s.fee_label === 2;
+      let badgeHTML = '';
+      if (isAnom && isDef) badgeHTML = '<span class="badge anomaly suggestion-badge">⚠️ Anomaly & Default</span>';
+      else if (isAnom) badgeHTML = '<span class="badge anomaly suggestion-badge">⚠️ Anomaly</span>';
+      else if (isDef) badgeHTML = '<span class="badge default suggestion-badge">💸 Default</span>';
+      else badgeHTML = '<span class="badge safe suggestion-badge">✅ Normal</span>';
+      
+      return `<div class="suggestion-item" onmousedown="openStudentModal('${s.id}')">
+        <div class="suggestion-info">
+          <div class="suggestion-avatar">${ini}</div>
+          <div>
+            <div class="suggestion-name">${s.name}</div>
+            <div class="suggestion-class">${s.id} · Class ${s.student_class || '—'}</div>
+          </div>
+        </div>
+        ${badgeHTML}
+      </div>`;
+    }).join('');
+  }
+  suggestionsBox.style.display = 'block';
+}
+
+/* Close modals on Escape key */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeStudentModal();
+    closeSegmentModal();
+  }
+});
 
 /* ── Boot ─────────────────────────────────────────────────────── */
 loadDashboard();

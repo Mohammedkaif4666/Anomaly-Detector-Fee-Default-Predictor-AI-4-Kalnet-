@@ -252,10 +252,10 @@ def analytics():
         if s['fee_label'] == 1:  class_stats[cls]["late"]      += 1
     class_breakdown = sorted(class_stats.values(), key=lambda x: x['class'])
 
-    # Top 10 highest-risk students (combined attendance + fee risk)
+    # Top highest-risk students (combined attendance + fee risk)
     def combined_risk(s):
         return s['risk_score'] * 0.5 + s['fee_prob'] * 0.5
-    top_risk = sorted(students_cache, key=combined_risk, reverse=True)[:10]
+    top_risk = sorted(students_cache, key=combined_risk, reverse=True)
     top_risk_students = [{
         "id":              s['id'],
         "name":            s['name'],

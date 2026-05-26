@@ -79,17 +79,58 @@ Serves the Admin Analytics Dashboard (`templates/dashboard.html`).
 ---
 
 ### `GET /api/analytics`
-Returns aggregate and chart-ready JSON data specifically formatted for the Admin Dashboard visualizations.
+Returns aggregate and chart-ready JSON data specifically formatted for the Admin Dashboard visualizations. Contains the full sorted list of student risks.
 
 **Response:**
 ```json
 {
-  "totalStudents": 500,
-  "attendanceAlerts": 15,
-  "feeAlerts": 12,
-  "classData": {"10A": 45, "9B": 38},
-  "feeStatusData": [400, 50, 50],
-  "recentActivities": [...]
+  "total_students": 500,
+  "anomaly_count": 50,
+  "fee_default_count": 252,
+  "fee_late_count": 52,
+  "risk_distribution": {"High": 0, "Medium": 225, "Low": 275},
+  "fee_distribution": {"On Time": 196, "Late": 52, "Default": 252},
+  "attendance_histogram": [
+    {"bucket": "0-50%", "count": 12},
+    {"bucket": "50-60%", "count": 25},
+    {"bucket": "60-70%", "count": 33},
+    {"bucket": "70-80%", "count": 68},
+    {"bucket": "80-90%", "count": 142},
+    {"bucket": "90-100%", "count": 220}
+  ],
+  "class_breakdown": [
+    {"class": "6A", "total": 50, "anomalies": 4, "defaults": 25, "late": 5},
+    {"class": "6B", "total": 50, "anomalies": 6, "defaults": 22, "late": 6}
+  ],
+  "top_risk_students": [
+    {
+      "id": "STU_281",
+      "name": "Rahul Gupta",
+      "student_class": "6A",
+      "attendance_rate": 34.5,
+      "risk_score": 88.2,
+      "fee_prob": 97.4,
+      "is_anomaly": true,
+      "fee_label": 2
+    }
+  ],
+  "recent_activity": [
+    {
+      "id": "STU_281",
+      "name": "Rahul Gupta",
+      "type": "Attendance Anomaly",
+      "detail": "Risk 88.2"
+    }
+  ],
+  "system_health": 69.8,
+  "model_metrics": {
+    "anomaly_model": "IsolationForest",
+    "anomaly_recall": 63,
+    "fee_model": "GradientBoosting",
+    "fee_recall": 70,
+    "total_features": 10,
+    "training_records": 72000
+  }
 }
 ```
 
