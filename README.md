@@ -54,14 +54,20 @@ kalnet AI-4 team project/
 │
 ├── jyothsna_lenka/
 │   ├── main.py                  # FastAPI server — backend + API + UI serving
-│   └── jyothsna.md              # Full API documentation (read this for API details)
+│   ├── jyothsna.md              # Full API documentation (read this for API details)
+│   └── EXPLANATION.md           # Explanation of backend, API, and UI work for presentation
 │
 ├── vodyati_sai_phanindra/
 │   └── evaluate.py              # Evaluation metrics, reports, and model verification
 │
 ├── templates/
-│   ├── index.html               # Frontend dashboard — professional table layout
-│   └── style.css                # Separate CSS for clean table design
+│   ├── index.html               # Frontend dashboard — student directory
+│   ├── dashboard.html           # Admin analytics dashboard
+│   ├── landing.html             # Marketing landing page
+│   ├── style.css                # Student directory CSS
+│   ├── dashboard.css            # Admin dashboard CSS
+│   ├── landing.css              # Landing page CSS
+│   └── navbar.css               # Shared navigation CSS
 │
 ├── data/                        # Generated CSVs (auto-created on first run)
 │   ├── attendance_raw.csv       # 72,000 rows: student_id, date, is_present
