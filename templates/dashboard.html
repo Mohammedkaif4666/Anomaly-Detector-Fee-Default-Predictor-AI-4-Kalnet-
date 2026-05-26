@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KALNET AI-4 — Admin Analytics Dashboard</title>
+  <meta name="description" content="Admin analytics dashboard for KALNET AI-4: attendance anomalies, fee defaults, student risk insights, and ML model performance."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/navbar.css"/>
+  <link rel="stylesheet" href="/static/dashboard.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════ SIDEBAR -->
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <a href="/" class="sidebar-logo-row" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px;">
+      <div class="sidebar-logo">K4</div>
+      <div>
+        <div class="sidebar-app"><span>KALNET</span> AI-4</div>
+        <div class="sidebar-sub">School Intelligence</div>
+      </div>
+    </a>
+    <div class="sidebar-badge">● Models Active</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">Overview</div>
+    <a class="nav-item active" href="/dashboard">
+      <span class="nav-icon">📊</span> Analytics Dashboard
+    </a>
+    <a class="nav-item" href="/students">
+      <span class="nav-icon">👥</span> Student Directory
+    </a>
+
+    <div class="nav-section-title">ML Insights</div>
+    <a class="nav-item" href="/students" onclick="localStorage.setItem('kf','anomaly');return true;">
+      <span class="nav-icon">⚠️</span> Anomaly Alerts
+    </a>
+    <a class="nav-item" href="/students" onclick="localStorage.setItem('kf','fee_risk');return true;">
+      <span class="nav-icon">💸</span> Fee Default Risks
+    </a>
+    <a class="nav-item" href="/students" onclick="localStorage.setItem('kf','safe');return true;">
+      <span class="nav-icon">✅</span> Safe Students
+    </a>
+
+    <div class="nav-section-title">System</div>
+    <a class="nav-item" href="/">
+      <span class="nav-icon">🏠</span> Landing Page
+    </a>
+    <a class="nav-item" href="/docs" target="_blank">
+      <span class="nav-icon">📖</span> API Docs
+    </a>
+    <a class="nav-item" href="/api/summary" target="_blank">
+      <span class="nav-icon">🔗</span> Summary JSON
+    </a>
+    <a class="nav-item" href="/api/analytics" target="_blank">
+      <span class="nav-icon">🔗</span> Analytics JSON
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a class="sidebar-footer-link" href="https://github.com/Mohammedkaif4666/Anomaly-Detector-Fee-Default-Predictor-AI-4-Kalnet-" target="_blank">
+      <span class="nav-icon">💻</span> GitHub Repository
+    </a>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════ MAIN CONTENT -->
+<main id="content">
+
+  <!-- Top Navbar -->
+  <nav class="global-nav" style="position: sticky; z-index: 100;">
+    <div class="gn-brand" style="visibility: hidden; width: 0;"></div> <!-- Hidden for sidebar layout -->
+    <div class="gn-links" style="margin-left: auto;">
+      <a class="gn-btn" href="/">🏠 Home</a>
+      <a class="gn-btn" href="/students">👥 Students</a>
+      <a class="gn-btn active" href="/dashboard">📊 Admin</a>
+      <a class="gn-btn" href="/docs" target="_blank">📖 API Docs</a>
+    </div>
+    <div style="margin-left: 20px; display: flex; align-items: center; gap: 14px;">
+      <span class="topbar-time" id="clockEl" style="font-size: 13px; color: #64748b; font-weight: 500;"></span>
+      <div class="topbar-avatar" title="Admin" style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #06b6d4); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; cursor: pointer;">AD</div>
+    </div>
+  </nav>
+
+  <div class="topbar-title" style="padding: 24px 32px 0;">
+    <h1 style="font-size: 20px; font-weight: 700;">Admin Analytics Dashboard</h1>
+    <p style="font-size: 13px; color: #64748b; margin-top: 1px;">Live ML insights · KALNET AI-4 · IsolationForest + GradientBoosting</p>
+  </div>
+
+  <!-- Page Body -->
+  <div class="page-body">
+
+    <!-- ── KPI Cards ───────────────────────────────────────── -->
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="kpi-icon">🏫</div>
+        <div class="kpi-num" id="kTotal">—</div>
+        <div class="kpi-label">Total Students</div>
+        <div class="kpi-change">Active</div>
+      </div>
+      <div class="kpi-card cyan">
+        <div class="kpi-icon">⚠️</div>
+        <div class="kpi-num" id="kAnom">—</div>
+        <div class="kpi-label">Attendance Anomalies</div>
+        <div class="kpi-change" id="kAnomPct">—</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-icon">💸</div>
+        <div class="kpi-num" id="kFee">—</div>
+        <div class="kpi-label">Fee Defaults</div>
+        <div class="kpi-change" id="kFeePct">—</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-num" id="kSafe">—</div>
+        <div class="kpi-label">Safe Students</div>
+        <div class="kpi-change" id="kSafePct">—</div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 1: Risk | Fee | Attendance ─────────────── -->
+    <div class="charts-row">
+
+      <!-- Risk Distribution Donut -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h3>Risk Distribution</h3>
+            <p>Students by anomaly risk level</p>
+          </div>
+          <span class="chart-tag">IsolationForest</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="riskChart"></canvas>
+        </div>
+        <div id="riskLegend" style="display:flex;gap:12px;justify-content:center;margin-top:12px;flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- Fee Distribution Donut -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h3>Fee Status Breakdown</h3>
+            <p>On Time / Late / Default</p>
+          </div>
+          <span class="chart-tag">GradientBoosting</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="feeChart"></canvas>
+        </div>
+        <div id="feeLegend" style="display:flex;gap:12px;justify-content:center;margin-top:12px;flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- Attendance Histogram Bar -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h3>Attendance Distribution</h3>
+            <p>Students per attendance-rate bucket</p>
+          </div>
+          <span class="chart-tag">All 500</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="attHistChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 2: Class Breakdown + Health ─────────────── -->
+    <div class="charts-row-2">
+
+      <!-- Class-wise anomaly bar chart -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h3>Class-wise Risk Overview</h3>
+            <p>Anomalies and fee defaults per class section</p>
+          </div>
+          <span class="chart-tag">All Classes</span>
+        </div>
+        <div class="chart-wrap tall">
+          <canvas id="classChart"></canvas>
+        </div>
+      </div>
+
+      <!-- System Health + Gauge -->
+      <div class="chart-card" style="display:flex;flex-direction:column;justify-content:space-between;">
+        <div class="chart-card-header">
+          <div>
+            <h3>System Health</h3>
+            <p>Overall platform status</p>
+          </div>
+        </div>
+        <div class="health-gauge">
+          <div class="gauge-circle" id="gaugeCircle">
+            <div class="gauge-num" id="gaugeNum">—</div>
+            <div class="gauge-lbl">/ 100</div>
+          </div>
+          <div class="gauge-title">Health Score</div>
+          <div class="gauge-sub" id="gaugeSub">Calculating…</div>
+        </div>
+        <div id="healthDetails" style="padding:0 8px 8px;display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+    </div>
+
+    <!-- ── Model Performance Metric Cards ───────────────────── -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-card-icon">🔍</div>
+        <div class="metric-card-num">63%</div>
+        <div class="metric-card-lbl">Anomaly Recall (IsolationForest)</div>
+        <div class="metric-card-sub">Target: ≥60% · Achieved: 63% ✅<br/>Contamination: 10% · n_estimators: 100</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-icon">💰</div>
+        <div class="metric-card-num">≥70%</div>
+        <div class="metric-card-lbl">Default Recall (GradientBoosting)</div>
+        <div class="metric-card-sub">Target: ≥70% · Achieved ✅<br/>4× sample weight · Auto threshold tuning</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-icon">📦</div>
+        <div class="metric-card-num">72K</div>
+        <div class="metric-card-lbl">Training Records Processed</div>
+        <div class="metric-card-sub">72,000 attendance rows + 1,500 fee rows<br/>10 ML features · 500 students</div>
+      </div>
+    </div>
+
+    <!-- ── Top Risk Students + Activity Feed ────────────────── -->
+    <div class="charts-row-2">
+
+      <!-- Top 10 High-Risk Students Table -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <div>
+            <h3>Top 10 Highest-Risk Students</h3>
+            <p>Ranked by combined attendance + fee risk score</p>
+          </div>
+          <a class="table-link" href="/students">View All →</a>
+        </div>
+        <div id="topRiskBody">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <!-- Recent Activity Feed -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <div>
+            <h3>Recent Alerts</h3>
+            <p>Latest flagged students by AI models</p>
+          </div>
+        </div>
+        <div class="activity-feed" id="activityFeed">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Class Breakdown Detail Table ─────────────────────── -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div>
+          <h3>Class-wise Detailed Breakdown</h3>
+          <p>Anomaly count, fee defaults, and late payers per class section</p>
+        </div>
+        <a class="table-link" href="/students">Open Directory →</a>
+      </div>
+      <table class="dash-table" id="classTable">
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Total Students</th>
+            <th>Anomalies</th>
+            <th>Fee Defaults</th>
+            <th>Late Payers</th>
+            <th>Anomaly Rate</th>
+          </tr>
+        </thead>
+        <tbody id="classTableBody">
+          <tr><td colspan="6" style="text-align:center;padding:24px;color:#94a3b8;"><div class="spinner"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-body -->
+</main><!-- /content -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   KALNET AI-4 — Admin Dashboard JavaScript
+   Fetches from /api/summary and /api/analytics, renders charts
+   All existing API endpoints are consumed read-only.
+══════════════════════════════════════════════════════════════ */
+
+/* Chart.js global defaults */
+Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+Chart.defaults.font.size   = 12;
+Chart.defaults.color       = '#64748b';
+
+const PALETTE = {
+  blue:   '#6366f1', cyan:  '#06b6d4', green: '#10b981',
+  amber:  '#f59e0b', red:   '#ef4444', violet:'#7c3aed',
+  blueDim:'rgba(99,102,241,0.15)', cyanDim:'rgba(6,182,212,0.15)',
+  greenDim:'rgba(16,185,129,0.15)', amberDim:'rgba(245,158,11,0.15)',
+};
+
+/* ── Clock ─────────────────────────────────────────────────── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockEl').textContent =
+    now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ── Animated counter ───────────────────────────────────────── */
+function animCount(id, target, suffix='') {
+  const el = document.getElementById(id);
+  if (!el || target === undefined || target === null) return;
+  let cur = 0;
+  const step = Math.max(1, Math.ceil(target / 40));
+  const iv = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = cur.toLocaleString() + suffix;
+    if (cur >= target) clearInterval(iv);
+  }, 25);
+}
+
+/* ── Legend helper ──────────────────────────────────────────── */
+function makeLegend(containerId, items) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = items.map(({color, label, value}) =>
+    `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:#64748b;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
+      ${label}: <strong style="color:#1e293b;">${value}</strong>
+    </span>`
+  ).join('');
+}
+
+/* ── Main data load ─────────────────────────────────────────── */
+async function loadDashboard() {
+  try {
+    const [summary, analytics] = await Promise.all([
+      fetch('/api/summary').then(r => r.json()),
+      fetch('/api/analytics').then(r => r.json()),
+    ]);
+    renderKPIs(summary, analytics);
+    renderRiskChart(analytics.risk_distribution);
+    renderFeeChart(analytics.fee_distribution);
+    renderAttHistChart(analytics.attendance_histogram);
+    renderClassChart(analytics.class_breakdown);
+    renderHealthGauge(analytics.system_health, analytics);
+    renderTopRisk(analytics.top_risk_students);
+    renderActivity(analytics.recent_activity);
+    renderClassTable(analytics.class_breakdown);
+  } catch(err) {
+    console.error('Dashboard load error:', err);
+    showError();
+  }
+}
+
+/* ── KPI Cards ──────────────────────────────────────────────── */
+function renderKPIs(sum, ana) {
+  animCount('kTotal', sum.total);
+  animCount('kAnom',  sum.anomalies);
+  animCount('kFee',   sum.fee_defaults);
+  const safe = sum.total - sum.anomalies - sum.fee_defaults;
+  animCount('kSafe', Math.max(0, safe));
+  document.getElementById('kAnomPct').textContent =
+    (sum.total ? ((sum.anomalies / sum.total) * 100).toFixed(1) : 0) + '%';
+  document.getElementById('kFeePct').textContent =
+    (sum.total ? ((sum.fee_defaults / sum.total) * 100).toFixed(1) : 0) + '%';
+  document.getElementById('kSafePct').textContent =
+    (sum.total ? ((Math.max(0, safe) / sum.total) * 100).toFixed(1) : 0) + '%';
+}
+
+/* ── Risk Distribution Donut ────────────────────────────────── */
+function renderRiskChart(dist) {
+  if (!dist) return;
+  const {High=0, Medium=0, Low=0} = dist;
+  new Chart(document.getElementById('riskChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['High Risk', 'Medium Risk', 'Low Risk'],
+      datasets: [{
+        data: [High, Medium, Low],
+        backgroundColor: [PALETTE.red, PALETTE.amber, PALETTE.green],
+        borderColor: '#fff', borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} students` } }
+      }
+    }
+  });
+  makeLegend('riskLegend', [
+    {color: PALETTE.red,   label: 'High',   value: High},
+    {color: PALETTE.amber, label: 'Medium', value: Medium},
+    {color: PALETTE.green, label: 'Low',    value: Low},
+  ]);
+}
+
+/* ── Fee Status Donut ───────────────────────────────────────── */
+function renderFeeChart(dist) {
+  if (!dist) return;
+  const {['On Time']:onTime=0, Late=0, Default:def=0} = dist;
+  new Chart(document.getElementById('feeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['On Time', 'Late', 'Default'],
+      datasets: [{
+        data: [onTime, Late, def],
+        backgroundColor: [PALETTE.green, PALETTE.amber, PALETTE.red],
+        borderColor: '#fff', borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} students` } }
+      }
+    }
+  });
+  makeLegend('feeLegend', [
+    {color: PALETTE.green, label: 'On Time', value: onTime},
+    {color: PALETTE.amber, label: 'Late',    value: Late},
+    {color: PALETTE.red,   label: 'Default', value: def},
+  ]);
+}
+
+/* ── Attendance Histogram Bar ───────────────────────────────── */
+function renderAttHistChart(hist) {
+  if (!hist || !hist.length) return;
+  const colors = hist.map(h => {
+    const b = h.bucket;
+    if (b.startsWith('0') || b.startsWith('50')) return PALETTE.red;
+    if (b.startsWith('60') || b.startsWith('70')) return PALETTE.amber;
+    return PALETTE.green;
+  });
+  new Chart(document.getElementById('attHistChart'), {
+    type: 'bar',
+    data: {
+      labels: hist.map(h => h.bucket),
+      datasets: [{
+        label: 'Students',
+        data: hist.map(h => h.count),
+        backgroundColor: colors,
+        borderRadius: 8, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.raw} students` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { grid: { color: '#f1f5f9' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* ── Class-wise Grouped Bar Chart ───────────────────────────── */
+function renderClassChart(classData) {
+  if (!classData || !classData.length) return;
+  new Chart(document.getElementById('classChart'), {
+    type: 'bar',
+    data: {
+      labels: classData.map(c => c.class),
+      datasets: [
+        {
+          label: 'Anomalies',
+          data: classData.map(c => c.anomalies),
+          backgroundColor: 'rgba(239,68,68,0.75)',
+          borderRadius: 6, borderSkipped: false,
+        },
+        {
+          label: 'Fee Defaults',
+          data: classData.map(c => c.defaults),
+          backgroundColor: 'rgba(245,158,11,0.75)',
+          borderRadius: 6, borderSkipped: false,
+        },
+        {
+          label: 'Late Payers',
+          data: classData.map(c => c.late),
+          backgroundColor: 'rgba(99,102,241,0.5)',
+          borderRadius: 6, borderSkipped: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16 } },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: '#f1f5f9' }, beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+/* ── Health Gauge ───────────────────────────────────────────── */
+function renderHealthGauge(score, analytics) {
+  const el     = document.getElementById('gaugeNum');
+  const circle = document.getElementById('gaugeCircle');
+  const sub    = document.getElementById('gaugeSub');
+  const details = document.getElementById('healthDetails');
+  if (!el) return;
+
+  const s = Math.max(0, Math.min(100, score || 0));
+  let color, label;
+  if (s >= 80)       { color = '#10b981'; label = 'Excellent'; }
+  else if (s >= 60)  { color = '#f59e0b'; label = 'Fair';      }
+  else               { color = '#ef4444'; label = 'At Risk';   }
+
+  circle.style.borderColor = color;
+  circle.style.boxShadow   = `0 0 0 4px ${color}22`;
+  animCount('gaugeNum', Math.round(s));
+  sub.textContent = `Status: ${label}`;
+  sub.style.color = color;
+
+  if (analytics && details) {
+    const aRate = analytics.total_students
+      ? ((analytics.anomaly_count / analytics.total_students) * 100).toFixed(1)
+      : 0;
+    const dRate = analytics.total_students
+      ? ((analytics.fee_default_count / analytics.total_students) * 100).toFixed(1)
+      : 0;
+
+    details.innerHTML = [
+      { label: 'Anomaly Rate',      val: aRate + '%',  color: aRate > 15 ? '#ef4444' : '#10b981' },
+      { label: 'Default Rate',      val: dRate + '%',  color: dRate > 8  ? '#ef4444' : '#10b981' },
+      { label: 'Late Payment Rate', val:
+          (analytics.total_students
+            ? ((analytics.fee_late_count / analytics.total_students)*100).toFixed(1)
+            : 0) + '%',
+        color: '#f59e0b' },
+    ].map(r => `
+      <div style="display:flex;justify-content:space-between;align-items:center;
+                  padding:8px 0;border-bottom:1px solid #f5f7ff;font-size:13px;">
+        <span style="color:#64748b;">${r.label}</span>
+        <strong style="color:${r.color};">${r.val}</strong>
+      </div>`).join('');
+  }
+}
+
+/* ── Top Risk Students Table ────────────────────────────────── */
+function renderTopRisk(students) {
+  const el = document.getElementById('topRiskBody');
+  if (!el || !students || !students.length) {
+    if (el) el.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;">No data available.</div>';
+    return;
+  }
+  const rows = students.map(s => {
+    const ini  = s.name.split(' ').map(w => w[0]).join('').slice(0,2);
+    const rc   = s.risk_score > 70 ? 'fill-red' : s.risk_score > 40 ? 'fill-amber' : 'fill-green';
+    const fc   = s.fee_prob   > 60 ? 'fill-red' : s.fee_prob   > 25 ? 'fill-amber' : 'fill-green';
+    const flab = ['ontime','late','default'][s.fee_label] || 'ontime';
+    const ftxt = ['On Time','Late','Default'][s.fee_label] || 'On Time';
+    return `<tr>
+      <td>
+        <div class="td-student">
+          <div class="td-avatar">${ini}</div>
+          <div>
+            <div class="td-name">${s.name}</div>
+            <div class="td-id">${s.id} · ${s.student_class}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="mini-prog-wrap">
+          <div class="mini-prog-track">
+            <div class="mini-prog-fill ${rc}" style="width:${s.risk_score}%"></div>
+          </div>
+          <span style="font-weight:700;font-size:13px;color:${s.risk_score>70?'#ef4444':s.risk_score>40?'#f59e0b':'#10b981'}">
+            ${s.risk_score}
+          </span>
+        </div>
+      </td>
+      <td>
+        <div class="mini-prog-wrap">
+          <span style="font-size:13px;color:#64748b;">${s.attendance_rate}%</span>
+        </div>
+      </td>
+      <td>
+        <div class="mini-prog-wrap">
+          <div class="mini-prog-track">
+            <div class="mini-prog-fill ${fc}" style="width:${Math.min(s.fee_prob,100)}%"></div>
+          </div>
+          <span style="font-weight:600;font-size:12px;">${s.fee_prob}%</span>
+        </div>
+      </td>
+      <td>
+        <span class="badge ${s.is_anomaly ? 'anomaly' : 'safe'}">
+          ${s.is_anomaly ? '⚠️ Flagged' : '✅ Normal'}
+        </span>
+      </td>
+      <td><span class="badge ${flab}">${ftxt}</span></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Risk Score</th>
+          <th>Attendance</th>
+          <th>Default Prob</th>
+          <th>Anomaly</th>
+          <th>Fee Status</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ── Recent Activity Feed ───────────────────────────────────── */
+function renderActivity(items) {
+  const el = document.getElementById('activityFeed');
+  if (!el || !items || !items.length) {
+    if (el) el.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;">No alerts.</div>';
+    return;
+  }
+  el.innerHTML = items.map(a => {
+    const isAnom = a.type === 'Attendance Anomaly';
+    return `<div class="activity-item">
+      <div class="activity-dot ${isAnom ? 'anomaly' : 'default'}">
+        ${isAnom ? '⚠️' : '💸'}
+      </div>
+      <div class="activity-text">
+        <div class="activity-name">${a.name}</div>
+        <div class="activity-detail">${a.id} · ${a.detail}</div>
+      </div>
+      <div class="activity-type">
+        <span class="badge ${isAnom ? 'anomaly' : 'default'}">${a.type}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Class Table ────────────────────────────────────────────── */
+function renderClassTable(classData) {
+  const el = document.getElementById('classTableBody');
+  if (!el || !classData || !classData.length) return;
+  el.innerHTML = classData.map(c => {
+    const aRate = c.total ? ((c.anomalies / c.total) * 100).toFixed(0) : 0;
+    const barW  = Math.min(aRate, 100);
+    const barC  = aRate > 20 ? 'fill-red' : aRate > 10 ? 'fill-amber' : 'fill-green';
+    return `<tr>
+      <td><strong style="color:#4f46e5;">${c.class}</strong></td>
+      <td>${c.total}</td>
+      <td>
+        <span style="color:${c.anomalies>3?'#ef4444':'#10b981'};font-weight:600;">${c.anomalies}</span>
+      </td>
+      <td>
+        <span style="color:${c.defaults>2?'#d97706':'#10b981'};font-weight:600;">${c.defaults}</span>
+      </td>
+      <td><span style="color:#f59e0b;font-weight:600;">${c.late}</span></td>
+      <td>
+        <div class="mini-prog-wrap">
+          <div class="mini-prog-track" style="width:80px;">
+            <div class="mini-prog-fill ${barC}" style="width:${barW}%;"></div>
+          </div>
+          <span style="font-size:12px;color:#64748b;">${aRate}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Error fallback ─────────────────────────────────────────── */
+function showError() {
+  const msg = `<div style="text-align:center;padding:32px;color:#94a3b8;">
+    <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+    <div style="font-weight:600;color:#64748b;margin-bottom:6px;">Server not running</div>
+    <div style="font-size:13px;">Start the FastAPI server:<br/>
+      <code style="background:#f1f5f9;padding:4px 10px;border-radius:6px;font-size:12px;display:inline-block;margin-top:8px;">
+        uvicorn jyothsna_lenka.main:app --reload
+      </code>
+    </div>
+  </div>`;
+  ['topRiskBody','activityFeed','classTableBody'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = msg;
+  });
+  ['kTotal','kAnom','kFee','kSafe','kAnomPct','kFeePct','kSafePct','gaugeNum'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+}
+
+/* ── Boot ─────────────────────────────────────────────────────── */
+loadDashboard();
+</script>
+</body>
+</html>

@@ -273,7 +273,11 @@ uvicorn jyothsna_lenka.main:app --reload
 ```
 
 ### Step 9 — Open the Dashboard
-- **Frontend Dashboard:** `http://localhost:8000`
+- **Landing Page (Public):** `http://localhost:8000`
+- **Student Directory (Public):** `http://localhost:8000/students`
+- **Admin Analytics (Secured):** `http://localhost:8000/dashboard`
+  - **Username:** `admin` *(Teammate access)*
+  - **Password:** `kalnet2026` *(Teammate access)*
 - **Interactive API Docs:** `http://localhost:8000/docs`
 - **API JSON (direct):** `http://localhost:8000/api/summary`
 
@@ -281,21 +285,18 @@ uvicorn jyothsna_lenka.main:app --reload
 
 ---
 
-## 🖥️ Dashboard Features
+## 🖥️ Platform Interfaces (CEO Review Updates)
 
-| Feature | Description |
-|---------|-------------|
-| **Live Stats** | Animated counters: total students, anomaly count, fee defaults, late payers |
-| **Student Table** | Clean rows with columns: Name, Class, Attendance, Risk Score, Fee Status, Default Prob, Overall |
-| **Pagination** | 20 students per page with navigation |
-| **Sorting** | Sort by risk score, attendance rate, or default probability |
-| **Search** | Real-time search by name or student ID |
-| **Filter Tabs** | All / ⚠️ Anomalies / 💸 Fee Default / ✅ Safe |
-| **Student Modal** | Click any row → centered popup with full analysis |
-| **Reason Boxes** | AI-generated explanation of WHY a student is flagged |
-| **30-Day Chart** | Chart.js bar chart — green = present, red = absent |
-| **Fee Probability** | Varied probabilities (e.g., 4%, 23%, 67%) — not just 0% or 100% |
-| **Responsive** | Works on mobile, tablet, and desktop |
+> *After consulting the CEO, the platform was overhauled to be market-ready with premium aesthetics, full mobile responsiveness, and enterprise-grade navigation.*
+
+| Interface | Description |
+|-----------|-------------|
+| **Marketing Landing Page** | High-conversion entry point with live ML statistics, feature overviews, and team details. |
+| **Admin Analytics Dashboard** | Secure, authenticated dashboard featuring real-time KPI cards, Chart.js visualizations, class breakdowns, and system health gauges. |
+| **Student Directory Table** | Clean rows with columns: Name, Class, Attendance, Risk Score, Fee Status, Default Prob, Overall. Features pagination, sorting, search, and filter tabs. |
+| **Unified Navigation** | A persistent `global-nav` shared across all pages. On mobile devices, it intelligently snaps to a sticky bottom-bar for effortless thumb navigation. |
+| **Student Modal** | Click any row → centered popup with full analysis, AI-generated reason boxes, and a 30-day Chart.js bar chart. |
+| **Admin Security** | The `/dashboard` route is protected by HTTP Basic Authentication. Easily toggled via the `REQUIRE_ADMIN_AUTH` flag in `main.py`. |
 
 ---
 
@@ -309,10 +310,13 @@ Quick reference:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Serve frontend dashboard |
+| `/` | GET | Serve public marketing landing page |
+| `/students` | GET | Serve public student directory dashboard |
+| `/dashboard` | GET | Serve secure admin analytics dashboard (Auth required) |
 | `/api/summary` | GET | Aggregate stats (totals, anomaly counts) |
 | `/api/students` | GET | Student list with search & filter |
 | `/api/student/{id}` | GET | Full student detail + 30-day history |
+| `/api/analytics` | GET | Chart-ready JSON data for the Admin Dashboard |
 | `/ai/anomalies` | POST | Run IsolationForest on given student IDs |
 | `/ai/fee-risk` | POST | Run GradientBoosting on given student IDs |
 | `/docs` | GET | Interactive Swagger API documentation |

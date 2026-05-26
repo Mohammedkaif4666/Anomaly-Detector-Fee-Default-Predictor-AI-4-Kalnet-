@@ -1,14 +1,33 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 import joblib
 import os
+import secrets
 from typing import List
 
 app = FastAPI(title="KALNET AI-4")
+
+security = HTTPBasic()
+REQUIRE_ADMIN_AUTH = True
+
+def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
+    if not REQUIRE_ADMIN_AUTH:
+        return "admin"
+    
+    correct_username = secrets.compare_digest(credentials.username, "admin")
+    correct_password = secrets.compare_digest(credentials.password, "kalnet2026")
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect admin credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 models = {}
 features_db = {}
@@ -95,9 +114,9 @@ def startup():
                 "outstanding": fd['outstanding'],
                 "days_late": fd['days_late'],
             })
-        print(f"✅ KALNET AI-4 ready — {len(students_cache)} students loaded.")
+        print(f"[OK] KALNET AI-4 ready -- {len(students_cache)} students loaded.")
     except Exception as e:
-        print(f"❌ Startup error: {e}")
+        print(f"[ERROR] Startup error: {e}")
 
 
 # ── Dashboard summary ──────────────────────────────────────────
@@ -183,10 +202,126 @@ def get_fee_risk(req: StudentRequest):
     return {"results": results}
 
 
-# ── Serve UI ───────────────────────────────────────────────────
+# ── Analytics API — used by new Admin Dashboard ───────────────
+@app.get("/api/analytics")
+def analytics():
+    """Aggregate analytics data from the pre-computed student cache.
+    Returns chart-ready JSON for the Admin Dashboard visualisations."""
+    if not students_cache:
+        return {}
+
+    total = len(students_cache)
+
+    # Risk distribution (based on risk_score)
+    high = sum(1 for s in students_cache if s['risk_score'] > 70)
+    medium = sum(1 for s in students_cache if 40 < s['risk_score'] <= 70)
+    low = total - high - medium
+
+    # Fee distribution
+    on_time = sum(1 for s in students_cache if s['fee_label'] == 0)
+    late    = sum(1 for s in students_cache if s['fee_label'] == 1)
+    default = sum(1 for s in students_cache if s['fee_label'] == 2)
+
+    # Attendance rate histogram (10-point buckets)
+    buckets = {
+        "0-50%": 0, "50-60%": 0, "60-70%": 0,
+        "70-80%": 0, "80-90%": 0, "90-100%": 0
+    }
+    for s in students_cache:
+        r = s['attendance_rate']
+        if r < 50:   buckets["0-50%"] += 1
+        elif r < 60: buckets["50-60%"] += 1
+        elif r < 70: buckets["60-70%"] += 1
+        elif r < 80: buckets["70-80%"] += 1
+        elif r < 90: buckets["80-90%"] += 1
+        else:        buckets["90-100%"] += 1
+    attendance_histogram = [
+        {"bucket": k, "count": v} for k, v in buckets.items()
+    ]
+
+    # Class-wise breakdown (anomalies + defaults per class)
+    class_stats = {}
+    for s in students_cache:
+        cls = s.get('student_class', 'Unknown')
+        if cls not in class_stats:
+            class_stats[cls] = {"class": cls, "total": 0,
+                                "anomalies": 0, "defaults": 0, "late": 0}
+        class_stats[cls]["total"] += 1
+        if s['is_anomaly']:      class_stats[cls]["anomalies"] += 1
+        if s['fee_label'] == 2:  class_stats[cls]["defaults"]  += 1
+        if s['fee_label'] == 1:  class_stats[cls]["late"]      += 1
+    class_breakdown = sorted(class_stats.values(), key=lambda x: x['class'])
+
+    # Top 10 highest-risk students (combined attendance + fee risk)
+    def combined_risk(s):
+        return s['risk_score'] * 0.5 + s['fee_prob'] * 0.5
+    top_risk = sorted(students_cache, key=combined_risk, reverse=True)[:10]
+    top_risk_students = [{
+        "id":              s['id'],
+        "name":            s['name'],
+        "student_class":   s.get('student_class', '—'),
+        "attendance_rate": s['attendance_rate'],
+        "risk_score":      s['risk_score'],
+        "fee_prob":        s['fee_prob'],
+        "is_anomaly":      s['is_anomaly'],
+        "fee_label":       s['fee_label'],
+    } for s in top_risk]
+
+    # Recent activity: latest 8 flagged students (anomaly or default)
+    flagged = [s for s in students_cache if s['is_anomaly'] or s['fee_label'] == 2]
+    recent_activity = [{
+        "id":     s['id'],
+        "name":   s['name'],
+        "type":   "Attendance Anomaly" if s['is_anomaly'] else "Fee Default",
+        "detail": f"Risk {s['risk_score']}" if s['is_anomaly'] else f"{s['fee_prob']}% default prob",
+    } for s in flagged[:8]]
+
+    # Overall health score (0-100, higher = better)
+    health = round(100 - (high / total * 40) - (default / total * 60), 1)
+
+    return {
+        "total_students":      total,
+        "anomaly_count":       sum(1 for s in students_cache if s['is_anomaly']),
+        "fee_default_count":   default,
+        "fee_late_count":      late,
+        "risk_distribution":   {"High": high, "Medium": medium, "Low": low},
+        "fee_distribution":    {"On Time": on_time, "Late": late, "Default": default},
+        "attendance_histogram": attendance_histogram,
+        "class_breakdown":     class_breakdown,
+        "top_risk_students":   top_risk_students,
+        "recent_activity":     recent_activity,
+        "system_health":       max(0, health),
+        "model_metrics": {
+            "anomaly_model":    "IsolationForest",
+            "anomaly_recall":   63,
+            "fee_model":        "GradientBoosting",
+            "fee_recall":       70,
+            "total_features":   10,
+            "training_records": 72000,
+        },
+    }
+
+
+# ── Serve UI / Landing Page ────────────────────────────────────
 @app.get("/")
 def root():
+    """Serves the public-facing landing/marketing page as the home page."""
+    return FileResponse(os.path.join(TEMPLATES, "landing.html"))
+
+
+# ── Serve Student Directory ───────────────────────────────────
+@app.get("/students")
+def student_directory():
+    """Serves the student list dashboard table."""
     return FileResponse(os.path.join(TEMPLATES, "index.html"))
+
+
+# ── Serve Admin Analytics Dashboard ───────────────────────────
+@app.get("/dashboard")
+def admin_dashboard(username: str = Depends(verify_admin)):
+    """Serves the Admin Analytics Dashboard with charts and insights."""
+    return FileResponse(os.path.join(TEMPLATES, "dashboard.html"))
+
 
 app.mount("/static", StaticFiles(directory=TEMPLATES), name="static")
 

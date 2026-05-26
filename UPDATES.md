@@ -4,6 +4,33 @@
 
 ---
 
+## Update 3 — CEO Review: UX Overhaul & Security *(26 May 2026)*
+
+> *These updates were implemented after consulting the CEO to ensure the product is market-ready, visually stunning, and highly secure.*
+
+### 🎨 Marketing Landing Page Added
+- Created a brand-new, high-conversion landing page (`/`) explaining the platform's value proposition, features, models, and team.
+- Includes live dynamic system metrics pulled directly from the backend API.
+
+### 📊 Admin Analytics Dashboard Added
+- Built a comprehensive Analytics Dashboard (`/dashboard`).
+- Features real-time KPI cards, Chart.js visualizations (Risk Distribution, Fee Status, Attendance Histograms, Class Breakdown), a System Health gauge, and a Recent Alerts feed.
+
+### 📱 All-Device Responsiveness & Unified Navigation
+- Built a unified, persistent navigation bar (`global-nav`) shared across the Landing Page, Student Directory, and Admin Dashboard.
+- **Mobile Perfection:** On screens under 640px, the navigation bar smartly snaps to a sticky bottom-bar (app-like experience) to guarantee users are never trapped on a page without navigation.
+- Added horizontal scrolling to the Student Directory table to prevent layout breaks on small mobile screens.
+
+### 🔒 Admin Page Security (Hardcoded Authentication)
+- Secured the `/dashboard` route with HTTP Basic Authentication to prevent unauthorized access to sensitive analytics.
+- The Landing Page and Student Directory remain public.
+- **Admin Credentials (Temporary for Teammates):**
+  - **Username:** `admin`
+  - **Password:** `kalnet2026`
+- *Note: This can be easily disabled by setting `REQUIRE_ADMIN_AUTH = False` in `main.py`.*
+
+---
+
 ## Update 2 — Fee Model & UI Overhaul *(14 May 2026)*
 
 ### 🐛 Critical Bug Fixed: Default Probability Showing 0% or 100% Only

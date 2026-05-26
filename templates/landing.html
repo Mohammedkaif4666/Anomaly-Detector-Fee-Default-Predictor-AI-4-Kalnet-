@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KALNET AI-4 — Intelligent School Analytics Platform</title>
+  <meta name="description" content="KALNET AI-4 uses machine learning to detect student attendance anomalies and predict fee defaults in real schools — before problems escalate."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/navbar.css"/>
+  <link rel="stylesheet" href="/static/landing.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ NAV -->
+<nav class="global-nav" id="nav">
+  <a href="/" class="gn-brand">
+    <div class="gn-logo">K4</div>
+    <div class="gn-brand-text">
+      <div class="gn-brand-name"><span>KALNET</span> AI-4</div>
+      <div class="gn-brand-sub">School Intelligence Platform</div>
+    </div>
+  </a>
+  <div class="gn-links">
+    <a class="gn-btn active" href="/">🏠 Home</a>
+    <a class="gn-btn" href="/students">👥 Students</a>
+    <a class="gn-btn" href="/dashboard">📊 Admin</a>
+    <a class="gn-btn" href="/docs" target="_blank">📖 API Docs</a>
+  </div>
+  <span class="gn-badge">Live ML</span>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════ HERO -->
+<section id="hero">
+  <div class="hero-inner">
+
+    <!-- Left: Content -->
+    <div class="hero-content">
+      <span class="pill blue hero-badge">⚡ Live Machine Learning · Scikit-learn Only</span>
+      <h1 class="hero-title">
+        <span class="gradient-text">School Intelligence</span><br/>
+        That Saves Students
+      </h1>
+      <p class="hero-sub">
+        KALNET AI-4 uses unsupervised anomaly detection and gradient boosting to flag
+        attendance crises and predict fee defaults — days before they become disasters.
+      </p>
+      <div class="hero-cta-row">
+        <a class="btn-primary" href="/students">
+          <span>🚀</span> Open Student Directory
+        </a>
+        <a class="btn-secondary" href="/dashboard">
+          <span>📊</span> Admin Analytics
+        </a>
+      </div>
+      <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:8px;">
+        <span class="pill green">✓ 63% Anomaly Recall</span>
+        <span class="pill amber">✓ ≥70% Default Recall</span>
+        <span class="pill blue">✓ No Paid APIs</span>
+      </div>
+    </div>
+
+    <!-- Right: Live data preview cards -->
+    <div class="hero-visual" id="heroVisual">
+      <div class="hero-card">
+        <div class="hero-card-header">
+          <span class="hero-card-title">🏫 Total Students Monitored</span>
+          <span class="pill blue" style="font-size:10px;">LIVE</span>
+        </div>
+        <div class="hero-stat blue" id="hTotal">—</div>
+      </div>
+      <div class="hero-stats-row">
+        <div class="mini-stat">
+          <div class="mini-stat-num" id="hAnom" style="color:#f87171;">—</div>
+          <div class="mini-stat-lbl">⚠️ Attendance Anomalies</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-num" id="hFee" style="color:#fbbf24;">—</div>
+          <div class="mini-stat-lbl">💸 Fee Defaults</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-num" id="hLate" style="color:#34d399;">—</div>
+          <div class="mini-stat-lbl">🕒 Late Payers</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-num" id="hSafe" style="color:#818cf8;">—</div>
+          <div class="mini-stat-lbl">✅ Safe Students</div>
+        </div>
+      </div>
+      <div class="hero-card" style="background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.3);">
+        <div class="hero-card-title" style="margin-bottom:10px;">🤖 AI Models Active</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <span class="pill blue" style="font-size:11px;">IsolationForest</span>
+          <span class="pill blue" style="font-size:11px;">GradientBoosting</span>
+          <span class="pill green" style="font-size:11px;">StandardScaler</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scroll hint -->
+  <div class="scroll-hint">
+    <span>SCROLL</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="pill blue">Platform Features</span>
+      <h2>Everything a School Needs<br/><span class="gradient-text">to Act Before It's Too Late</span></h2>
+      <p>Six modules working together: from raw data generation to real-time dashboard alerts — fully automated, no external APIs needed.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon blue">🔍</div>
+        <h3>Attendance Anomaly Detection</h3>
+        <p>IsolationForest identifies students whose attendance patterns are statistically abnormal — catching sudden drops before they become crises. Achieves 63% recall on real anomalous students.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon amber">💰</div>
+        <h3>Fee Default Prediction</h3>
+        <p>GradientBoosting trained on historical term payment data predicts which students will default next term — with ≥70% recall on the rare default class.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon cyan">📊</div>
+        <h3>Real-Time Dashboard</h3>
+        <p>Live student table with search, filter, sort, and pagination. Click any student to see their full AI-generated risk analysis and 30-day attendance chart.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon green">🗄️</div>
+        <h3>500 Students · 72K Records</h3>
+        <p>Realistic synthetic dataset: 500 students across 10 classes, 72,000 daily attendance records, 1,500 fee payment records with income brackets and family data.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon violet">⚡</div>
+        <h3>FastAPI Backend</h3>
+        <p>All ML predictions pre-computed at startup and cached in memory — instant dashboard load with zero inference latency per request. Full REST API with Swagger docs.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon red">🛡️</div>
+        <h3>No Data Leakage</h3>
+        <p>Feature engineering strictly uses Terms 1 &amp; 2 historical data to predict Term 3 — preventing the trivial pattern that would make probabilities always 0% or 100%.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="pill blue">Pipeline</span>
+      <h2>From Raw Data to<br/><span class="gradient-text">Actionable Alerts</span></h2>
+      <p>Four automated stages take you from data generation to a live dashboard — run once, then just start the server.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Generate Data</h3>
+        <p>Mohammed Kaif's generator creates 72K attendance records and 1.5K fee records with realistic anomalous patterns injected for 14% of students.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">2</div>
+        <h3>Engineer Features</h3>
+        <p>Rohith Koppu transforms raw logs into 10 ML features: absence streaks, payment history averages, income brackets, and more — with quality validation.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">3</div>
+        <h3>Train ML Models</h3>
+        <p>Om trains IsolationForest for attendance. Are Samhith trains GradientBoosting for fees — with threshold tuning to guarantee ≥70% recall on defaults.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">4</div>
+        <h3>Serve Dashboard</h3>
+        <p>Jyothsna's FastAPI loads both models at startup, pre-computes all 500 students, and serves the live dashboard + REST API on a single server command.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════ ML MODELS -->
+<section id="models">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="pill blue">Machine Learning</span>
+      <h2>Two Models,<br/><span class="gradient-text">One Unified Intelligence</span></h2>
+      <p>Both models are built exclusively with Scikit-learn — no cloud AI, no paid APIs. Real ML in real schools.</p>
+    </div>
+    <div class="models-grid">
+      <!-- Model 1 -->
+      <div class="model-card reveal">
+        <div class="model-tag">🔍 Unsupervised</div>
+        <h3>Attendance Anomaly Detection</h3>
+        <p class="desc">IsolationForest isolates observations by randomly partitioning features. Anomalous students have unusual absence streaks or day-of-week patterns — they're isolated faster, producing a lower decision score mapped to a 0–100 risk scale.</p>
+        <div class="model-metrics">
+          <div class="metric-box">
+            <div class="metric-val">63%</div>
+            <div class="metric-lbl">Anomaly Recall</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">90%</div>
+            <div class="metric-lbl">Precision</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">100</div>
+            <div class="metric-lbl">n_estimators</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">4</div>
+            <div class="metric-lbl">Input Features</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model 2 -->
+      <div class="model-card reveal">
+        <div class="model-tag">💰 Supervised</div>
+        <h3>Fee Default Prediction</h3>
+        <p class="desc">GradientBoosting trained on Terms 1 &amp; 2 historical data to predict Term 3 defaults. 4× sample weights for the rare default class, automatic threshold tuning to consistently hit ≥70% recall on the minority class.</p>
+        <div class="model-metrics">
+          <div class="metric-box">
+            <div class="metric-val">≥70%</div>
+            <div class="metric-lbl">Default Recall</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">200</div>
+            <div class="metric-lbl">n_estimators</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">6</div>
+            <div class="metric-lbl">Input Features</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">4×</div>
+            <div class="metric-lbl">Default Weight</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ STATS -->
+<section id="stats">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="pill blue">System Metrics</span>
+      <h2>Numbers That <span class="gradient-text">Speak for Themselves</span></h2>
+      <p>Live statistics pulled directly from the running ML pipeline and student database.</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card reveal">
+        <div class="stat-icon">🏫</div>
+        <div class="stat-num blue" id="st1">—</div>
+        <div class="stat-lbl">Students Monitored</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-icon">📋</div>
+        <div class="stat-num cyan">72,000</div>
+        <div class="stat-lbl">Attendance Records</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-num amber" id="st2">—</div>
+        <div class="stat-lbl">Anomalies Detected</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-icon">🤖</div>
+        <div class="stat-num green">2</div>
+        <div class="stat-lbl">AI Models Running</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ TEAM -->
+<section id="team">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="pill blue">KALNET AI-4 Pod</span>
+      <h2>Built by a<br/><span class="gradient-text">Six-Engineer Team</span></h2>
+      <p>Each member owns a critical module — from raw data to live deployment.</p>
+    </div>
+    <div class="team-grid">
+      <div class="team-card reveal">
+        <div class="team-avatar">MK</div>
+        <div class="team-name">Mohammed Kaif</div>
+        <div class="team-role">Pod Lead · Data Engineer</div>
+        <div class="team-files">mohammed_kaif/</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar">RK</div>
+        <div class="team-name">Rohith Koppu</div>
+        <div class="team-role">Feature &amp; Quality Engineer</div>
+        <div class="team-files">rohith_koppu/</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar">OW</div>
+        <div class="team-name">Om Dattatray Wabale</div>
+        <div class="team-role">ML Engineer — Anomaly Model</div>
+        <div class="team-files">om_dattatray_wabale/</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar">AS</div>
+        <div class="team-name">Are Samhith</div>
+        <div class="team-role">ML Engineer — Fee Model</div>
+        <div class="team-files">are_samhith/</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar">JL</div>
+        <div class="team-name">Jyothsna Lenka</div>
+        <div class="team-role">API Developer · FastAPI Backend</div>
+        <div class="team-files">jyothsna_lenka/</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar">VP</div>
+        <div class="team-name">Vodyati Sai Phanindra</div>
+        <div class="team-role">QA · Model Evaluator</div>
+        <div class="team-files">vodyati_sai_phanindra/</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ CTA BAND -->
+<section id="cta-band">
+  <div class="cta-inner">
+    <h2>Ready to See It in <span class="gradient-text">Action?</span></h2>
+    <p>Open the live dashboard to explore all 500 students, their risk scores, and AI-generated explanations.</p>
+    <div class="cta-btn-row">
+      <a class="btn-primary" href="/students">🚀 Open Student Directory</a>
+      <a class="btn-secondary" href="/dashboard">📊 Admin Analytics</a>
+      <a class="btn-secondary" href="/docs">📖 API Docs</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">
+        <div class="footer-logo">K4</div>
+        <div class="footer-name">KALNET AI-4</div>
+      </div>
+      <div class="footer-tagline">
+        Anomaly Detector &amp; Fee Default Predictor.<br/>
+        Machine learning in real schools — Scikit-learn only. No paid APIs.
+      </div>
+    </div>
+    <div class="footer-links">
+      <div class="footer-links-title">Platform</div>
+      <a class="footer-link" href="/students">Student Directory</a>
+      <a class="footer-link" href="/dashboard">Admin Analytics</a>
+      <a class="footer-link" href="/docs">API Documentation</a>
+      <a class="footer-link" href="/api/summary">Live Summary JSON</a>
+    </div>
+    <div class="footer-links">
+      <div class="footer-links-title">ML Pipeline</div>
+      <a class="footer-link" href="#models">IsolationForest Model</a>
+      <a class="footer-link" href="#models">GradientBoosting Model</a>
+      <a class="footer-link" href="#how">Data Pipeline</a>
+      <a class="footer-link" href="#team">Team &amp; Contributions</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 KALNET AI-4 — Team Project · Python · FastAPI · Scikit-learn</span>
+    <span>Built with ❤️ by AI-4 Pod</span>
+  </div>
+</footer>
+
+<script>
+/* ── Fetch live stats from existing API ───────────────────── */
+async function loadStats() {
+  try {
+    const r = await fetch('/api/summary');
+    const d = await r.json();
+    animCount('hTotal', d.total);
+    animCount('hAnom',  d.anomalies);
+    animCount('hFee',   d.fee_defaults);
+    animCount('hLate',  d.fee_late);
+    animCount('st1',    d.total);
+    animCount('st2',    d.anomalies);
+    const safe = d.total - d.anomalies - d.fee_defaults;
+    animCount('hSafe',  Math.max(0, safe));
+  } catch(e) {
+    // Server may not be running — show placeholder values
+    ['hTotal','st1'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '500'; });
+    ['hAnom','st2'].forEach(id  => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+    ['hFee'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+    ['hLate'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+    ['hSafe'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+  }
+}
+
+/* Animated number counter */
+function animCount(id, target) {
+  const el = document.getElementById(id);
+  if (!el || target === undefined) return;
+  let cur = 0;
+  const step = Math.max(1, Math.ceil(target / 40));
+  const iv = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = cur.toLocaleString();
+    if (cur >= target) clearInterval(iv);
+  }, 25);
+}
+
+/* ── Scroll-reveal ────────────────────────────────────────── */
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      revealObs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach((el, i) => {
+  el.style.transitionDelay = `${(i % 6) * 0.08}s`;
+  revealObs.observe(el);
+});
+
+/* ── Nav scroll effect ────────────────────────────────────── */
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('nav');
+  if (window.scrollY > 60) {
+    nav.style.background = 'rgba(255,255,255,0.97)';
+    nav.style.boxShadow  = '0 4px 24px rgba(0,0,0,0.08)';
+  } else {
+    nav.style.background = '#ffffff';
+    nav.style.boxShadow  = 'none';
+  }
+});
+
+loadStats();
+</script>
+</body>
+</html>

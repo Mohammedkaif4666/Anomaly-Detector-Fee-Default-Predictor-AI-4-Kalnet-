@@ -5,10 +5,26 @@
 <title>KALNET AI-4 Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/navbar.css"/>
 <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
-<nav><div class="nav-brand"><div class="nav-logo">K4</div><div><div class="nav-title"><span>KALNET</span> AI-4</div><div class="nav-sub">School Intelligence Dashboard</div></div></div><span class="nav-badge">⚡ Live</span></nav>
+<nav class="global-nav" id="nav">
+  <a href="/" class="gn-brand">
+    <div class="gn-logo">K4</div>
+    <div class="gn-brand-text">
+      <div class="gn-brand-name"><span>KALNET</span> AI-4</div>
+      <div class="gn-brand-sub">School Intelligence Platform</div>
+    </div>
+  </a>
+  <div class="gn-links">
+    <a class="gn-btn" href="/">🏠 Home</a>
+    <a class="gn-btn active" href="/students">👥 Students</a>
+    <a class="gn-btn" href="/dashboard">📊 Admin</a>
+    <a class="gn-btn" href="/docs" target="_blank">📖 API Docs</a>
+  </div>
+  <span class="gn-badge">Live ML</span>
+</nav>
 
 <div class="stats-bar" id="statsBar">
   <div class="stat blue"><h3>Total Students</h3><div class="num" id="sTotal">—</div></div>
@@ -55,6 +71,15 @@
 const PER_PAGE=20;let allData=[],filtered=[],page=1,curFilter='all',sortKey='',chartInst=null;
 
 async function init(){
+  const fk = localStorage.getItem('kf');
+  if(fk){
+    curFilter = fk;
+    localStorage.removeItem('kf');
+    document.querySelectorAll('.tab').forEach(t => {
+      if(t.dataset.f === curFilter) t.classList.add('active');
+      else t.classList.remove('active');
+    });
+  }
   const[sm,st]=await Promise.all([fetch('/api/summary').then(r=>r.json()),fetch('/api/students').then(r=>r.json())]);
   anim('sTotal',sm.total);anim('sAnom',sm.anomalies);anim('sFee',sm.fee_defaults);anim('sLate',sm.fee_late);
   allData=st;applyFilters();

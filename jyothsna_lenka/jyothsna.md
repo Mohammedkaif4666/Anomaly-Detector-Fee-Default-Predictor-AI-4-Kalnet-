@@ -57,9 +57,41 @@ The frontend uses the **Fetch API** (native browser JavaScript) to call these en
 ## API Endpoints
 
 ### `GET /`
-Serves the frontend dashboard (`templates/index.html`).
+Serves the public Marketing Landing Page (`templates/landing.html`).
 
 **Response:** HTML page
+
+---
+
+### `GET /students`
+Serves the public Student Directory Dashboard (`templates/index.html`).
+
+**Response:** HTML page
+
+---
+
+### `GET /dashboard`
+Serves the Admin Analytics Dashboard (`templates/dashboard.html`).
+*Protected by HTTP Basic Authentication (Username: admin, Password: kalnet2026).*
+
+**Response:** HTML page (if authenticated)
+
+---
+
+### `GET /api/analytics`
+Returns aggregate and chart-ready JSON data specifically formatted for the Admin Dashboard visualizations.
+
+**Response:**
+```json
+{
+  "totalStudents": 500,
+  "attendanceAlerts": 15,
+  "feeAlerts": 12,
+  "classData": {"10A": 45, "9B": 38},
+  "feeStatusData": [400, 50, 50],
+  "recentActivities": [...]
+}
+```
 
 ---
 

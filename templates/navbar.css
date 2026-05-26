@@ -1,0 +1,219 @@
+/* ============================================================
+   KALNET AI-4 — Shared Navbar Stylesheet
+   Included by ALL pages for a consistent navigation experience.
+   ============================================================ */
+
+.global-nav {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  height: 64px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border-bottom: 2px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* ── Brand (left) ─────────────────────────────────────────── */
+.gn-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.gn-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4f46e5, #06b6d4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 900;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+  flex-shrink: 0;
+}
+
+.gn-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.gn-brand-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.gn-brand-name span {
+  color: #4f46e5;
+}
+
+.gn-brand-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+/* ── Navigation buttons (center) ──────────────────────────── */
+.gn-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gn-btn:hover {
+  color: #1e293b;
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.gn-btn.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  border-color: #4f46e5;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+.gn-btn.active:hover {
+  background: linear-gradient(135deg, #4338ca, #3730a3);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Status badge (right) ─────────────────────────────────── */
+.gn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1.5px solid #86efac;
+  flex-shrink: 0;
+}
+
+.gn-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+  animation: gn-pulse 2s ease infinite;
+}
+
+@keyframes gn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .global-nav {
+    padding: 0 16px;
+    height: 58px;
+  }
+  .gn-links {
+    gap: 4px;
+  }
+  .gn-btn {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+  .gn-brand-sub {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .gn-links {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    padding: 10px 16px 16px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    z-index: 10000;
+  }
+  .gn-btn {
+    padding: 10px;
+    flex-direction: column;
+    font-size: 11px;
+    gap: 4px;
+    flex: 1;
+    justify-content: center;
+    border: none;
+    background: transparent;
+  }
+  .gn-btn:hover {
+    background: rgba(241, 245, 249, 0.5);
+    box-shadow: none;
+  }
+  .gn-btn.active {
+    background: transparent;
+    color: #4f46e5;
+    box-shadow: none;
+  }
+  .gn-btn.active::after {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 3px;
+    background: #4f46e5;
+    border-radius: 10px;
+    margin-top: 2px;
+  }
+  .gn-btn span {
+    font-size: 20px;
+    margin-bottom: 2px;
+  }
+  .gn-badge {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+  body {
+    padding-bottom: 70px;
+  }
+}
