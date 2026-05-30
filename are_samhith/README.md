@@ -55,3 +55,28 @@ The project evaluates:
 Primary goal:
 - Maximize recall for defaulters
 - Reduce missed high-risk students
+
+
+# Installation
+
+## Clone Repository
+git clone <https://github.com/Mohammedkaif4666/Anomaly-Detector-Fee-Default-Predictor-AI-4-Kalnet>
+
+## Install Dependencies
+pip install -r requirements.txt
+
+# Run Training
+python train.py
+
+# Output
+- model.pkl
+- threshold.pkl
+
+# Future Improvements
+- Hyperparameter tuning
+- Cross-validation
+- FastAPI deployment
+
+# Author
+Are Samhith
+ML Engineer 2
