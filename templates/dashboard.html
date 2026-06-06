@@ -8,81 +8,32 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="/static/navbar.css"/>
-  <link rel="stylesheet" href="/static/dashboard.css"/>
+  <link rel="stylesheet" href="/static/navbar.css?v=1.2"/>
+  <link rel="stylesheet" href="/static/dashboard.css?v=1.2"/>
 </head>
 <body>
-
-<!-- ══════════════════════════════════════════════════ SIDEBAR -->
-<aside id="sidebar">
-  <div class="sidebar-header">
-    <a href="/" class="sidebar-logo-row" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px;">
-      <div class="sidebar-logo">K4</div>
-      <div>
-        <div class="sidebar-app"><span>KALNET</span> AI-4</div>
-        <div class="sidebar-sub">School Intelligence</div>
-      </div>
-    </a>
-    <div class="sidebar-badge">● Models Active</div>
-  </div>
-
-  <nav class="sidebar-nav">
-    <div class="nav-section-title">Overview</div>
-    <a class="nav-item active" href="/dashboard">
-      <span class="nav-icon">📊</span> Analytics Dashboard
-    </a>
-    <a class="nav-item" href="/students">
-      <span class="nav-icon">👥</span> Student Directory
-    </a>
-
-    <div class="nav-section-title">ML Insights</div>
-    <a class="nav-item" href="/students" onclick="localStorage.setItem('kf','anomaly');return true;">
-      <span class="nav-icon">⚠️</span> Anomaly Alerts
-    </a>
-    <a class="nav-item" href="/students" onclick="localStorage.setItem('kf','fee_risk');return true;">
-      <span class="nav-icon">💸</span> Fee Default Risks
-    </a>
-    <a class="nav-item" href="/students" onclick="localStorage.setItem('kf','safe');return true;">
-      <span class="nav-icon">✅</span> Safe Students
-    </a>
-
-    <div class="nav-section-title">System</div>
-    <a class="nav-item" href="/">
-      <span class="nav-icon">🏠</span> Landing Page
-    </a>
-    <a class="nav-item" href="/docs" target="_blank">
-      <span class="nav-icon">📖</span> API Docs
-    </a>
-    <a class="nav-item" href="/api/summary" target="_blank">
-      <span class="nav-icon">🔗</span> Summary JSON
-    </a>
-    <a class="nav-item" href="/api/analytics" target="_blank">
-      <span class="nav-icon">🔗</span> Analytics JSON
-    </a>
-  </nav>
-
-  <div class="sidebar-footer">
-    <a class="sidebar-footer-link" href="https://github.com/Mohammedkaif4666/Anomaly-Detector-Fee-Default-Predictor-AI-4-Kalnet-" target="_blank">
-      <span class="nav-icon">💻</span> GitHub Repository
-    </a>
-  </div>
-</aside>
 
 <!-- ═══════════════════════════════════════════ MAIN CONTENT -->
 <main id="content">
 
   <!-- Top Navbar -->
   <nav class="global-nav" style="position: sticky; z-index: 100;">
-    <div class="gn-brand" style="visibility: hidden; width: 0;"></div> <!-- Hidden for sidebar layout -->
-    
+    <a href="/" class="gn-brand">
+      <div class="gn-logo">K4</div>
+      <div class="gn-brand-text">
+        <div class="gn-brand-name"><span>KALNET</span> AI-4</div>
+        <div class="gn-brand-sub">School Intelligence Platform</div>
+      </div>
+    </a>
+
     <!-- Quick Student Lookup Search Bar -->
-    <div class="search-wrap" style="margin-left: 0; margin-right: auto;">
+    <div class="search-wrap" style="margin-left: auto; margin-right: 16px;">
       <span class="search-icon">🔍</span>
       <input type="text" id="globalStudentSearch" placeholder="Quick student lookup..." oninput="handleGlobalSearch(this.value)" onfocus="document.getElementById('searchSuggestions').style.display='block'" onblur="setTimeout(() => { document.getElementById('searchSuggestions').style.display='none'; }, 200);">
       <div class="search-suggestions" id="searchSuggestions"></div>
     </div>
 
-    <div class="gn-links" style="margin-left: auto;">
+    <div class="gn-links">
       <a class="gn-btn" href="/">🏠 Home</a>
       <a class="gn-btn" href="/students">👥 Students</a>
       <a class="gn-btn active" href="/dashboard">📊 Admin</a>
@@ -95,7 +46,7 @@
     </div>
   </nav>
 
-  <div class="topbar-title" style="padding: 24px 32px 0;">
+  <div class="topbar-title" style="padding: 16px 28px 0;">
     <h1 style="font-size: 20px; font-weight: 700;">Admin Analytics Dashboard</h1>
     <p style="font-size: 13px; color: #64748b; margin-top: 1px;">Live ML insights · KALNET AI-4 · IsolationForest + GradientBoosting</p>
   </div>
@@ -287,21 +238,23 @@
         </div>
         <a class="table-link" href="/students">Open Directory →</a>
       </div>
-      <table class="dash-table" id="classTable">
-        <thead>
-          <tr>
-            <th>Class</th>
-            <th>Total Students</th>
-            <th>Anomalies</th>
-            <th>Fee Defaults</th>
-            <th>Late Payers</th>
-            <th>Anomaly Rate</th>
-          </tr>
-        </thead>
-        <tbody id="classTableBody">
-          <tr><td colspan="6" style="text-align:center;padding:24px;color:#94a3b8;"><div class="spinner"></div></td></tr>
-        </tbody>
-      </table>
+      <div style="overflow-x: auto;">
+        <table class="dash-table" id="classTable">
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Total Students</th>
+              <th>Anomalies</th>
+              <th>Fee Defaults</th>
+              <th>Late Payers</th>
+              <th>Anomaly Rate</th>
+            </tr>
+          </thead>
+          <tbody id="classTableBody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:#94a3b8;"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div><!-- /page-body -->
@@ -797,21 +750,23 @@ function renderTopRisk(students) {
       <td><span class="badge ${flab}">${ftxt}</span></td>
     </tr>`;
   }).join('');
-
+  
   el.innerHTML = `
-    <table class="dash-table">
-      <thead>
-        <tr>
-          <th>Student</th>
-          <th>Risk Score</th>
-          <th>Attendance</th>
-          <th>Default Prob</th>
-          <th>Anomaly</th>
-          <th>Fee Status</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    <div style="overflow-x: auto;">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Risk Score</th>
+            <th>Attendance</th>
+            <th>Default Prob</th>
+            <th>Anomaly</th>
+            <th>Fee Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 /* ── Recent Activity Feed ───────────────────────────────────── */

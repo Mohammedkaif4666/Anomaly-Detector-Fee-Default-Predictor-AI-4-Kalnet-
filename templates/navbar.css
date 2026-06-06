@@ -162,19 +162,9 @@
     padding: 0 16px;
     height: 58px;
   }
-  .gn-links {
-    gap: 4px;
-  }
-  .gn-btn {
-    padding: 7px 14px;
-    font-size: 13px;
-  }
   .gn-brand-sub {
     display: none;
   }
-}
-
-@media (max-width: 640px) {
   .mobile-menu-btn {
     display: block;
   }
