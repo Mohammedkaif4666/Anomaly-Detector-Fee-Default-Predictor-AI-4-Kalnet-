@@ -44,15 +44,79 @@ NAMES = [
     "Sneha Das","Harsh Agarwal","Riya Thakur","Nikhil Pandey","Divya Chauhan",
 ]
 
+def _load_or_retrain_models():
+    """Load pre-trained .pkl models.  If they fail (e.g. scikit-learn
+    version mismatch producing 'No module named _loss'), retrain
+    from the CSV data using the same hyper-parameters as the original
+    training scripts.  This guarantees the server starts on any
+    scikit-learn version."""
+    from sklearn.ensemble import IsolationForest, GradientBoostingClassifier
+    from sklearn.preprocessing import StandardScaler
+
+    att_model_path  = os.path.join(ROOT, 'models/attendance_anomaly/model.pkl')
+    att_scaler_path = os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl')
+    fee_model_path  = os.path.join(ROOT, 'models/fee_predictor/model.pkl')
+    fee_thresh_path = os.path.join(ROOT, 'models/fee_predictor/threshold.pkl')
+
+    # ── Try loading attendance model ──────────────────────────
+    try:
+        models['att']    = joblib.load(att_model_path)
+        models['scaler'] = joblib.load(att_scaler_path)
+        print("[OK] Attendance model loaded from .pkl")
+    except Exception as e:
+        print(f"[WARN] Attendance pkl load failed ({e}), retraining…")
+        att_df = pd.read_csv(os.path.join(ROOT, 'data/attendance_features.csv'))
+        X_a = att_df.drop(['student_id', 'is_anomaly'], axis=1).values
+        scaler = StandardScaler()
+        X_a_s = scaler.fit_transform(X_a)
+        iso = IsolationForest(contamination=0.1, n_estimators=100, random_state=42)
+        iso.fit(X_a_s)
+        models['att']    = iso
+        models['scaler'] = scaler
+        # Save so next restart is faster
+        os.makedirs(os.path.dirname(att_model_path), exist_ok=True)
+        try:
+            joblib.dump(iso,    att_model_path)
+            joblib.dump(scaler, att_scaler_path)
+        except Exception:
+            pass
+        print("[OK] Attendance model retrained successfully")
+
+    # ── Try loading fee model ─────────────────────────────────
+    try:
+        models['fee'] = joblib.load(fee_model_path)
+        models['fee_thresh'] = joblib.load(fee_thresh_path) if os.path.exists(fee_thresh_path) else 0.5
+        print("[OK] Fee model loaded from .pkl")
+    except Exception as e:
+        print(f"[WARN] Fee pkl load failed ({e}), retraining…")
+        fee_df = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv'))
+        X_f = fee_df.drop(['student_id', 'label'], axis=1).values
+        y_f = fee_df['label'].values
+        # Use same sample_weight approach as original (4x weight for defaults)
+        sample_w = np.where(y_f == 2, 4.0, 1.0)
+        gbc = GradientBoostingClassifier(
+            n_estimators=200, learning_rate=0.08,
+            max_depth=4, random_state=42
+        )
+        gbc.fit(X_f, y_f, sample_weight=sample_w)
+        models['fee'] = gbc
+        models['fee_thresh'] = 0.5
+        # Save so next restart is faster
+        os.makedirs(os.path.dirname(fee_model_path), exist_ok=True)
+        try:
+            joblib.dump(gbc, fee_model_path)
+            joblib.dump(0.5, fee_thresh_path)
+        except Exception:
+            pass
+        print("[OK] Fee model retrained successfully")
+
+
 @app.on_event("startup")
 def startup():
     global students_cache
     try:
-        models['att'] = joblib.load(os.path.join(ROOT, 'models/attendance_anomaly/model.pkl'))
-        models['scaler'] = joblib.load(os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl'))
-        models['fee'] = joblib.load(os.path.join(ROOT, 'models/fee_predictor/model.pkl'))
-        thresh_path = os.path.join(ROOT, 'models/fee_predictor/threshold.pkl')
-        models['fee_thresh'] = joblib.load(thresh_path) if os.path.exists(thresh_path) else 0.5
+        # ── Load / retrain models ─────────────────────────────
+        _load_or_retrain_models()
 
         att = pd.read_csv(os.path.join(ROOT, 'data/attendance_features.csv')).reset_index(drop=True)
         fee = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv')).reset_index(drop=True)
@@ -120,6 +184,8 @@ def startup():
         global startup_error_msg
         startup_error_msg = str(e)
         print(f"[ERROR] Startup error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # ── Dashboard summary ──────────────────────────────────────────
