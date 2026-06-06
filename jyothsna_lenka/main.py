@@ -32,6 +32,7 @@ def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
 models = {}
 features_db = {}
 students_cache = []
+startup_error_msg = "No error"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES = os.path.join(ROOT, "templates")
@@ -116,6 +117,8 @@ def startup():
             })
         print(f"[OK] KALNET AI-4 ready -- {len(students_cache)} students loaded.")
     except Exception as e:
+        global startup_error_msg
+        startup_error_msg = str(e)
         print(f"[ERROR] Startup error: {e}")
 
 
@@ -321,6 +324,24 @@ def student_directory():
 def admin_dashboard(username: str = Depends(verify_admin)):
     """Serves the Admin Analytics Dashboard with charts and insights."""
     return FileResponse(os.path.join(TEMPLATES, "dashboard.html"))
+
+
+@app.get("/api/debug")
+def debug_info():
+    return {
+        "status": "running",
+        "cache_len": len(students_cache),
+        "startup_error": startup_error_msg,
+        "models_keys": list(models.keys()),
+        "root_dir": ROOT,
+        "exists": {
+            "model_att": os.path.exists(os.path.join(ROOT, 'models/attendance_anomaly/model.pkl')),
+            "scaler": os.path.exists(os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl')),
+            "model_fee": os.path.exists(os.path.join(ROOT, 'models/fee_predictor/model.pkl')),
+            "att_features": os.path.exists(os.path.join(ROOT, 'data/attendance_features.csv')),
+            "fee_features": os.path.exists(os.path.join(ROOT, 'data/fee_features.csv')),
+        }
+    }
 
 
 app.mount("/static", StaticFiles(directory=TEMPLATES), name="static")
