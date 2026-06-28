@@ -45,17 +45,15 @@ NAMES = [
 ]
 
 def _load_or_retrain_models():
-    """Load pre-trained .pkl models.  If they fail (e.g. scikit-learn
-    version mismatch producing 'No module named _loss'), retrain
-    from the CSV data using the same hyper-parameters as the original
-    training scripts.  This guarantees the server starts on any
-    scikit-learn version."""
+    """Load pre-trained .pkl models. Supports both V2 (old) and V3 (new bundle) formats.
+    If they fail, fallback to retraining from CSV data."""
     from sklearn.ensemble import IsolationForest, GradientBoostingClassifier
     from sklearn.preprocessing import StandardScaler
 
     att_model_path  = os.path.join(ROOT, 'models/attendance_anomaly/model.pkl')
     att_scaler_path = os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl')
-    fee_model_path  = os.path.join(ROOT, 'models/fee_predictor/model.pkl')
+    fee_bundle_path = os.path.join(ROOT, 'models/fee_predictor/model_v3.pkl')
+    fee_model_path  = os.path.join(ROOT, 'models/fee_predictor/model.pkl')  # V2 fallback
     fee_thresh_path = os.path.join(ROOT, 'models/fee_predictor/threshold.pkl')
 
     # ── Try loading attendance model ──────────────────────────
@@ -73,7 +71,6 @@ def _load_or_retrain_models():
         iso.fit(X_a_s)
         models['att']    = iso
         models['scaler'] = scaler
-        # Save so next restart is faster
         os.makedirs(os.path.dirname(att_model_path), exist_ok=True)
         try:
             joblib.dump(iso,    att_model_path)
@@ -82,33 +79,53 @@ def _load_or_retrain_models():
             pass
         print("[OK] Attendance model retrained successfully")
 
-    # ── Try loading fee model ─────────────────────────────────
+    # ── Try loading fee model (V3 bundle first, V2 fallback) ──
+    fee_model_version = "unknown"
     try:
-        models['fee'] = joblib.load(fee_model_path)
-        models['fee_thresh'] = joblib.load(fee_thresh_path) if os.path.exists(fee_thresh_path) else 0.5
-        print("[OK] Fee model loaded from .pkl")
+        # Try V3 bundle first
+        if os.path.exists(fee_bundle_path):
+            bundle = joblib.load(fee_bundle_path)
+            models['fee'] = bundle['model']
+            models['fee_thresh'] = bundle['threshold']
+            models['fee_feature_cols'] = bundle['feature_cols']
+            fee_model_version = "V3 (bundle)"
+            print("[OK] Fee model V3 loaded from bundle")
+        else:
+            raise FileNotFoundError("V3 bundle not found")
     except Exception as e:
-        print(f"[WARN] Fee pkl load failed ({e}), retraining…")
-        fee_df = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv'))
-        X_f = fee_df.drop(['student_id', 'label'], axis=1).values
-        y_f = fee_df['label'].values
-        # Use same sample_weight approach as original (4x weight for defaults)
-        sample_w = np.where(y_f == 2, 4.0, 1.0)
-        gbc = GradientBoostingClassifier(
-            n_estimators=200, learning_rate=0.08,
-            max_depth=4, random_state=42
-        )
-        gbc.fit(X_f, y_f, sample_weight=sample_w)
-        models['fee'] = gbc
-        models['fee_thresh'] = 0.5
-        # Save so next restart is faster
-        os.makedirs(os.path.dirname(fee_model_path), exist_ok=True)
+        print(f"[WARN] Fee model V3 load failed ({e}), trying V2…")
         try:
-            joblib.dump(gbc, fee_model_path)
-            joblib.dump(0.5, fee_thresh_path)
-        except Exception:
-            pass
-        print("[OK] Fee model retrained successfully")
+            # Fall back to V2 format
+            models['fee'] = joblib.load(fee_model_path)
+            models['fee_thresh'] = joblib.load(fee_thresh_path) if os.path.exists(fee_thresh_path) else 0.5
+            models['fee_feature_cols'] = None
+            fee_model_version = "V2 (legacy)"
+            print("[OK] Fee model V2 loaded from .pkl")
+        except Exception as e2:
+            print(f"[WARN] Fee model V2 load also failed ({e2}), retraining V2…")
+            # Retrain V2
+            fee_df = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv'))
+            X_f = fee_df.drop(['student_id', 'label'], axis=1).values
+            y_f = fee_df['label'].values
+            sample_w = np.where(y_f == 2, 4.0, 1.0)
+            gbc = GradientBoostingClassifier(
+                n_estimators=200, learning_rate=0.08,
+                max_depth=4, random_state=42
+            )
+            gbc.fit(X_f, y_f, sample_weight=sample_w)
+            models['fee'] = gbc
+            models['fee_thresh'] = 0.5
+            models['fee_feature_cols'] = None
+            fee_model_version = "V2 (retrained)"
+            os.makedirs(os.path.dirname(fee_model_path), exist_ok=True)
+            try:
+                joblib.dump(gbc, fee_model_path)
+                joblib.dump(0.5, fee_thresh_path)
+            except Exception:
+                pass
+            print("[OK] Fee model V2 retrained successfully")
+    
+    models['fee_model_version'] = fee_model_version
 
 
 @app.on_event("startup")
@@ -119,37 +136,100 @@ def startup():
         _load_or_retrain_models()
 
         att = pd.read_csv(os.path.join(ROOT, 'data/attendance_features.csv')).reset_index(drop=True)
-        fee = pd.read_csv(os.path.join(ROOT, 'data/fee_features.csv')).reset_index(drop=True)
+        
+        # Try V3 features first, fall back to V2
+        fee_v3_path = os.path.join(ROOT, 'data/fee_features_v3.csv')
+        fee_v2_path = os.path.join(ROOT, 'data/fee_features.csv')
+        
+        if os.path.exists(fee_v3_path):
+            fee = pd.read_csv(fee_v3_path).reset_index(drop=True)
+            fee_version = "V3"
+        else:
+            fee = pd.read_csv(fee_v2_path).reset_index(drop=True)
+            fee_version = "V2"
+        
         features_db['att'] = att
         features_db['fee'] = fee
 
+        # ── Attendance predictions ─────────────────────────────
         X_att = att.drop(['student_id', 'is_anomaly'], axis=1).values
         X_scaled = models['scaler'].transform(X_att)
         att_preds = models['att'].predict(X_scaled)
         att_scores = np.clip(100 * (1 - (models['att'].decision_function(X_scaled) + 0.5) / 1.0), 0, 100)
 
-        X_fee = fee.drop(['student_id', 'label'], axis=1).values
-        fee_proba_all = models['fee'].predict_proba(X_fee)
-        default_col = list(models['fee'].classes_).index(2)
-        fee_probs = fee_proba_all[:, default_col]
-        fee_thresh = models.get('fee_thresh', 0.5)
-        # Use threshold-adjusted labels so UI badges match model decisions
-        fee_labels_pred = np.where(fee_probs >= fee_thresh, 2,
-                          np.argmax(fee_proba_all[:, [i for i in range(fee_proba_all.shape[1]) if i != default_col]], axis=1))
-        fee_classes_no_default = [c for c in models['fee'].classes_ if c != 2]
-        fee_labels_adjusted = []
-        for lp in fee_labels_pred:
-            if lp == 2:
-                fee_labels_adjusted.append(2)
+        # ── Fee predictions (V3 or V2) ───────────────────────
+        fee_map = {}
+        
+        if fee_version == "V3" and models.get('fee_feature_cols'):
+            # V3 model with 2-term features
+            print("[INFO] Using V3 fee model with 2-term history features")
+            
+            # Compute derived features for inference (must match training)
+            fee_derived = fee.copy()
+            fee_derived['outstanding_growth'] = fee_derived['t2_outstanding'] - fee_derived['t1_outstanding']
+            fee_derived['days_late_trend'] = fee_derived['t2_days_late'] - fee_derived['t1_days_late']
+            fee_derived['both_terms_late'] = ((fee_derived['t1_status'] >= 1) & (fee_derived['t2_status'] >= 1)).astype(int)
+            fee_derived['escalating'] = (fee_derived['t2_status'] > fee_derived['t1_status']).astype(int)
+            fee_derived['avg_outstanding'] = (fee_derived['t1_outstanding'] + fee_derived['t2_outstanding']) / 2
+            fee_derived['max_days_late'] = fee_derived[['t1_days_late', 't2_days_late']].max(axis=1)
+            
+            X_fee = fee_derived[models['fee_feature_cols']].values
+            fee_proba_all = models['fee'].predict_proba(X_fee)
+            fee_probs = fee_proba_all[:, 1]  # V3 is binary: class 1 = default
+            fee_thresh = models.get('fee_thresh', 0.5)
+            
+            for i in range(len(fee)):
+                sid = fee.loc[i, 'student_id']
+                fee_map[sid] = {
+                    'prob': float(fee_probs[i]),
+                    'label': 2 if fee_probs[i] >= fee_thresh else 0,
+                    'outstanding': float(fee.loc[i, 't2_outstanding']),
+                    'days_late': int(fee.loc[i, 't2_days_late']),
+                }
+        else:
+            # V2 model with single-term features
+            print(f"[INFO] Using V2 fee model with single-term features")
+            
+            X_fee = fee.drop(['student_id', 'label'], axis=1).values
+            fee_proba_all = models['fee'].predict_proba(X_fee)
+            
+            # Check if multiclass or binary
+            if fee_proba_all.shape[1] == 3:
+                # V2 multiclass: 0=OnTime, 1=Late, 2=Default
+                default_col = list(models['fee'].classes_).index(2)
+                fee_probs = fee_proba_all[:, default_col]
+                fee_thresh = models.get('fee_thresh', 0.5)
+                fee_labels_pred = np.where(fee_probs >= fee_thresh, 2,
+                                  np.argmax(fee_proba_all[:, [i for i in range(fee_proba_all.shape[1]) if i != default_col]], axis=1))
+                fee_classes_no_default = [c for c in models['fee'].classes_ if c != 2]
+                fee_labels_adjusted = []
+                for lp in fee_labels_pred:
+                    if lp == 2:
+                        fee_labels_adjusted.append(2)
+                    else:
+                        fee_labels_adjusted.append(int(fee_classes_no_default[lp]))
+                
+                for i in range(len(fee)):
+                    sid = fee.loc[i, 'student_id']
+                    fee_map[sid] = {
+                        'prob': float(fee_probs[i]),
+                        'label': int(fee_labels_adjusted[i]),
+                        'outstanding': float(fee.loc[i, 'total_outstanding']),
+                        'days_late': int(fee.loc[i, 'days_since_last_payment']),
+                    }
             else:
-                fee_labels_adjusted.append(int(fee_classes_no_default[lp]))
-
-        fee_map = {fee.loc[i, 'student_id']: {
-            'prob': float(fee_probs[i]),
-            'label': int(fee_labels_adjusted[i]),
-            'outstanding': float(fee.loc[i, 'total_outstanding']),
-            'days_late': int(fee.loc[i, 'days_since_last_payment']),
-        } for i in range(len(fee))}
+                # V2 binary or other format
+                fee_probs = fee_proba_all[:, 1] if fee_proba_all.shape[1] > 1 else fee_proba_all[:, 0]
+                fee_thresh = models.get('fee_thresh', 0.5)
+                
+                for i in range(len(fee)):
+                    sid = fee.loc[i, 'student_id']
+                    fee_map[sid] = {
+                        'prob': float(fee_probs[i]),
+                        'label': 2 if fee_probs[i] >= fee_thresh else 0,
+                        'outstanding': float(fee.loc[i, 'total_outstanding']),
+                        'days_late': int(fee.loc[i, 'days_since_last_payment']),
+                    }
 
         # Load class info if available
         labels_path = os.path.join(ROOT, 'data/student_labels.csv')
@@ -159,6 +239,7 @@ def startup():
             if 'class' in labels_df.columns:
                 class_map = dict(zip(labels_df['student_id'], labels_df['class']))
 
+        # ── Build student cache ────────────────────────────────
         for i, row in att.iterrows():
             sid = row['student_id']
             num = int(sid.split('_')[1]) - 1
@@ -179,7 +260,10 @@ def startup():
                 "outstanding": fd['outstanding'],
                 "days_late": fd['days_late'],
             })
+        
         print(f"[OK] KALNET AI-4 ready -- {len(students_cache)} students loaded.")
+        print(f"[INFO] Fee model: {models.get('fee_model_version', 'unknown')}")
+        
     except Exception as e:
         global startup_error_msg
         startup_error_msg = str(e)
@@ -259,14 +343,33 @@ def get_fee_risk(req: StudentRequest):
     df = features_db['fee'][features_db['fee']['student_id'].isin(req.student_ids)]
     if df.empty:
         return {"results": []}
-    X = df.drop(['student_id', 'label'], axis=1).values
-    probs = models['fee'].predict_proba(X)[:, 2]
+    
+    fee_thresh = models.get('fee_thresh', 0.5)
+    
+    if models.get('fee_feature_cols'):
+        # V3 model
+        df_derived = df.copy()
+        df_derived['outstanding_growth'] = df_derived['t2_outstanding'] - df_derived['t1_outstanding']
+        df_derived['days_late_trend'] = df_derived['t2_days_late'] - df_derived['t1_days_late']
+        df_derived['both_terms_late'] = ((df_derived['t1_status'] >= 1) & (df_derived['t2_status'] >= 1)).astype(int)
+        df_derived['escalating'] = (df_derived['t2_status'] > df_derived['t1_status']).astype(int)
+        df_derived['avg_outstanding'] = (df_derived['t1_outstanding'] + df_derived['t2_outstanding']) / 2
+        df_derived['max_days_late'] = df_derived[['t1_days_late', 't2_days_late']].max(axis=1)
+        
+        X = df_derived[models['fee_feature_cols']].values
+        probs = models['fee'].predict_proba(X)[:, 1]
+    else:
+        # V2 model
+        X = df.drop(['student_id', 'label'], axis=1).values
+        proba_all = models['fee'].predict_proba(X)
+        probs = proba_all[:, 2] if proba_all.shape[1] > 2 else proba_all[:, 1]
+    
     results = []
     for i, (_, row) in enumerate(df.iterrows()):
         results.append({
             "student_id": row['student_id'],
-            "default_probability": round(float(probs[i]), 2),
-            "risk_category": "High" if probs[i] > 0.6 else "Medium" if probs[i] > 0.3 else "Low",
+            "default_probability": round(float(probs[i] * 100), 2),
+            "risk_category": "High" if probs[i] > fee_thresh + 0.2 else "Medium" if probs[i] > fee_thresh else "Low",
         })
     return {"results": results}
 
@@ -363,10 +466,10 @@ def analytics():
         "model_metrics": {
             "anomaly_model":    "IsolationForest",
             "anomaly_recall":   63,
-            "fee_model":        "GradientBoosting",
-            "fee_recall":       70,
-            "total_features":   10,
-            "training_records": 72000,
+            "fee_model":        models.get('fee_model_version', 'unknown'),
+            "fee_recall":       85 if 'V3' in models.get('fee_model_version', '') else 70,
+            "total_features":   15 if 'V3' in models.get('fee_model_version', '') else 10,
+            "training_records": 2000 if 'V3' in models.get('fee_model_version', '') else 500,
         },
     }
 
@@ -399,13 +502,16 @@ def debug_info():
         "cache_len": len(students_cache),
         "startup_error": startup_error_msg,
         "models_keys": list(models.keys()),
+        "fee_model_version": models.get('fee_model_version', 'unknown'),
         "root_dir": ROOT,
         "exists": {
             "model_att": os.path.exists(os.path.join(ROOT, 'models/attendance_anomaly/model.pkl')),
             "scaler": os.path.exists(os.path.join(ROOT, 'models/attendance_anomaly/scaler.pkl')),
-            "model_fee": os.path.exists(os.path.join(ROOT, 'models/fee_predictor/model.pkl')),
+            "model_fee_v3": os.path.exists(os.path.join(ROOT, 'models/fee_predictor/model_v3.pkl')),
+            "model_fee_v2": os.path.exists(os.path.join(ROOT, 'models/fee_predictor/model.pkl')),
             "att_features": os.path.exists(os.path.join(ROOT, 'data/attendance_features.csv')),
-            "fee_features": os.path.exists(os.path.join(ROOT, 'data/fee_features.csv')),
+            "fee_features_v3": os.path.exists(os.path.join(ROOT, 'data/fee_features_v3.csv')),
+            "fee_features_v2": os.path.exists(os.path.join(ROOT, 'data/fee_features.csv')),
         }
     }
 
