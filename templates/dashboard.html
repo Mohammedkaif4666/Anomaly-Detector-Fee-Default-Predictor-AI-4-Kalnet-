@@ -736,7 +736,7 @@ function buildCalendarHTML(history){
   const DOW=['S','M','T','W','T','F','S'];
   const WE=[0,6];
   const months={};
-  history.forEach(h=>{ const ym=h.date.slice(0,7); (months[ym]=months[ym]||[]).push(h); });
+  history.forEach(h=>{ const ym = "2026-" + h.date.substring(5,7); (months[ym]=months[ym]||[]).push(h); });
 
   const cards=Object.keys(months).sort().map(ym=>{
     const [yr,mo]=ym.split('-').map(Number);

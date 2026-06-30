@@ -264,7 +264,7 @@ function buildCalendarHTML(history){
   const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const dow=['S','M','T','W','T','F','S'];
   const months={};
-  history.forEach(h=>{ const ym=h.date.slice(0,7); (months[ym]=months[ym]||[]).push(h); });
+  history.forEach(h=>{ const ym = "2026-" + h.date.substring(5,7); (months[ym]=months[ym]||[]).push(h); });
   const cards=Object.keys(months).sort().map(ym=>{
     const [year,month]=ym.split('-').map(Number);
     const daysInMonth=new Date(year,month,0).getDate();
