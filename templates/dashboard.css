@@ -268,13 +268,16 @@
      }
    }
    @media (max-width: 600px) {
-     .kpi-grid { grid-template-columns: 1fr 1fr; }
+     .kpi-grid { grid-template-columns: 1fr; }
      .metrics-row { grid-template-columns: 1fr; }
      .page-body { padding: 12px; }
      .search-wrap {
        width: 140px;
      }
      .topbar-time {
+       display: none !important;
+     }
+     .topbar-avatar {
        display: none !important;
      }
      .kpi-card { padding: 16px; }
@@ -285,6 +288,7 @@
      .modal-overlay { padding: 12px; }
      .modal-body { padding: 16px 16px; }
      .modal-header { padding: 16px 16px; }
+     .cal-wrap-row { flex-direction: column; }
    }
    
    /* ══════════════════════════════════════════════════ MODALS & INTERACTION */

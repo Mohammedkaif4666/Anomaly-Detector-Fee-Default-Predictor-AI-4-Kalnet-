@@ -60,7 +60,7 @@ h1, h2, h3, h4 { line-height: 1.2; letter-spacing: -0.02em; color: var(--text-pr
 a { text-decoration: none; color: inherit; }
 
 /* ── Utility ─────────────────────────────────────────────────── */
-.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.container { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 40px; }
 
 .gradient-text {
   background: var(--grad-accent);
@@ -611,7 +611,7 @@ section { padding: 100px 24px; position: relative; z-index: 1; }
 
 /* ── TEAM ────────────────────────────────────────────────────── */
 #team { background: var(--bg-secondary); }
-.team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .team-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -690,7 +690,7 @@ footer {
   padding: 48px 24px 32px;
 }
 .footer-inner {
-  max-width: 1200px; margin: 0 auto;
+  width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 40px;
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 40px; flex-wrap: wrap;
 }
@@ -715,8 +715,8 @@ footer {
 .footer-link:hover { color: var(--accent); transform: translateX(3px); }
 
 .footer-bottom {
-  max-width: 1200px; margin: 32px auto 0;
-  padding-top: 20px; border-top: 1px solid var(--border);
+  width: 100%; max-width: 1440px; margin: 32px auto 0;
+  padding-top: 20px; padding-left: 40px; padding-right: 40px; border-top: 1px solid var(--border);
   display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
   font-size: 13px; color: var(--text-muted);
 }
@@ -755,6 +755,7 @@ footer {
   .steps-line { display: none; }
   .models-grid { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
+  .team-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {
   section { padding: 72px 16px; }
@@ -766,6 +767,12 @@ footer {
   .steps { grid-template-columns: 1fr; }
   .model-metrics { grid-template-columns: 1fr 1fr; }
   .hero-title { font-size: 32px; }
+  .hero-sub { font-size: 15px; text-align: left; }
+  .hero-center { text-align: left; align-items: flex-start; }
+  .hero-cta-row { flex-direction: column; width: 100%; align-items: stretch; }
+  .hero-cta-row a { text-align: center; justify-content: center; width: 100%; }
+  .hero-pills { justify-content: flex-start; }
   footer .footer-inner { flex-direction: column; }
   .hero-grid-pattern { display: none; }
+  .team-grid { grid-template-columns: 1fr; }
 }
