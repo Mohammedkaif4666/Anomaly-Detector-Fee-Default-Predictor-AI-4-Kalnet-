@@ -4,12 +4,38 @@
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>KALNET AI-4 Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/static/navbar.css?v=1.2"/>
 <link rel="stylesheet" href="/static/style.css?v=1.2"/>
+<style>
+  .cal-months-row{display:flex;gap:12px;flex-wrap:nowrap;}
+  .cal-card{flex:1;min-width:0;background:#f8fafc;border:0.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;}
+  .cal-card-title{font-size:11px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .cal-dow{text-align:center;font-size:9px;font-weight:600;color:#94a3b8;padding-bottom:3px;}
+  .cal-cell{aspect-ratio:1/1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;}
+  .cal-cell.empty{background:transparent;}
+  .cal-cell.no-data{background:#f1f5f9;color:#cbd5e1;}
+  .cal-cell.present{background:#dcfce7;color:#15803d;}
+  .cal-cell.absent{background:#fee2e2;color:#dc2626;}
+  .cal-legend{display:flex;gap:12px;margin-top:8px;font-size:10px;color:#64748b;justify-content:center;}
+  .cal-legend-item{display:flex;align-items:center;gap:4px;}
+  .cal-legend-dot{width:8px;height:8px;border-radius:2px;}
+
+  /* ── Fix: modal always above sticky nav, hidden by default ── */
+  .modal-overlay{
+    display:none !important;
+    position:fixed !important;
+    top:0; left:0;
+    width:100%; height:100%;
+    z-index:200 !important;
+  }
+  .modal-overlay.show{
+    display:flex !important;
+  }
+</style>
 </head>
 <body>
-<nav class="global-nav" id="nav">
+<nav class="global-nav" id="nav" style="position:sticky;top:0;z-index:100;">
   <a href="/" class="gn-brand">
     <div class="gn-logo">K4</div>
     <div class="gn-brand-text">
@@ -18,10 +44,10 @@
     </div>
   </a>
   <div class="gn-links">
-    <a class="gn-btn" href="/">🏠 Home</a>
-    <a class="gn-btn active" href="/students">👥 Students</a>
-    <a class="gn-btn" href="/dashboard">📊 Admin</a>
-    <a class="gn-btn" href="/docs" target="_blank">📖 API Docs</a>
+    <a class="gn-btn" href="/">Home</a>
+    <a class="gn-btn active" href="/students">Students</a>
+    <a class="gn-btn" href="/dashboard">Admin</a>
+    <a class="gn-btn" href="/docs" target="_blank">API Docs</a>
   </div>
   <div style="display: flex; align-items: center;">
     <span class="gn-badge">Live ML</span>
@@ -33,7 +59,7 @@
   <div class="stat blue"><h3>Total Students</h3><div class="num" id="sTotal">—</div></div>
   <div class="stat red"><h3>Attendance Anomalies</h3><div class="num" id="sAnom">—</div></div>
   <div class="stat amber"><h3>Fee Defaults</h3><div class="num" id="sFee">—</div></div>
-  <div class="stat green"><h3>Late Payments</h3><div class="num" id="sLate">—</div></div>
+  <div class="stat green"><h3>Overall High Risk</h3><div class="num" id="sLate">—</div></div>
 </div>
 
 <div class="main">
@@ -42,19 +68,19 @@
       <button class="tab active" data-f="all">All</button>
       <button class="tab" data-f="anomaly">Anomalies</button>
       <button class="tab" data-f="fee_risk">Fee Default</button>
+      <button class="tab" data-f="overall_risk">Overall Risk</button>
       <button class="tab" data-f="safe">Safe</button>
     </div>
     <div class="right-tools">
-      <select id="sortSel"><option value="">Sort by</option><option value="risk_desc">Risk ↓</option><option value="risk_asc">Risk ↑</option><option value="att_desc">Attendance ↓</option><option value="att_asc">Attendance ↑</option><option value="fee_desc">Default Prob ↓</option></select>
-      <div class="search-wrap"><span>🔍</span><input type="text" id="searchInput" placeholder="Search students..."></div>
+      <select id="sortSel"><option value="">Sort by</option><option value="risk_desc">Risk ↓</option><option value="risk_asc">Risk ↑</option><option value="att_desc">Attendance ↓</option><option value="att_asc">Attendance ↑</option><option value="fee_desc">Default Prob ↓</option><option value="overall_desc">Overall ↓</option><option value="overall_asc">Overall ↑</option></select>      <div class="search-wrap"><span>🔍</span><input type="text" id="searchInput" placeholder="Search students..."></div>
     </div>
   </div>
 
   <div class="table-container">
     <table id="studentTable">
       <thead><tr>
-        <th style="width:22%">Student</th><th>Class</th><th>Attendance</th><th>Risk Score</th>
-        <th>Fee Status</th><th>Default Prob</th><th>Overall</th><th style="width:70px">Action</th>
+        <th style="width:22%">Student</th><th>Class</th><th>Attendance</th><th>Anomaly Score</th>
+        <th> Fee Risk Factor</th><th>Default Prob</th><th>Overall</th><th style="width:70px">Action</th>
       </tr></thead>
       <tbody id="tableBody"><tr><td colspan="8" class="loading"><div class="spinner"></div>Loading…</td></tr></tbody>
     </table>
@@ -71,7 +97,7 @@
 <footer>KALNET AI-4 — Anomaly Detector & Fee Default Predictor · Scikit-learn + FastAPI</footer>
 
 <script>
-const PER_PAGE=20;let allData=[],filtered=[],page=1,curFilter='all',sortKey='',chartInst=null;
+const PER_PAGE=20;let allData=[],filtered=[],page=1,curFilter='all',sortKey='';
 
 async function init(){
   const fk = localStorage.getItem('kf');
@@ -84,7 +110,8 @@ async function init(){
     });
   }
   const[sm,st]=await Promise.all([fetch('/api/summary').then(r=>r.json()),fetch('/api/students').then(r=>r.json())]);
-  anim('sTotal',sm.total);anim('sAnom',sm.anomalies);anim('sFee',sm.fee_defaults);anim('sLate',sm.fee_late);
+  const highRiskCount=st.filter(s=>combinedRisk(s)>=65).length;
+  anim('sTotal',sm.total);anim('sAnom',sm.anomalies);anim('sFee',sm.fee_defaults);anim('sLate',highRiskCount);
   allData=st;applyFilters();
 }
 
@@ -95,13 +122,31 @@ function applyFilters(){
   if(q)d=d.filter(s=>s.name.toLowerCase().includes(q)||s.id.toLowerCase().includes(q));
   if(curFilter==='anomaly')d=d.filter(s=>s.is_anomaly);
   else if(curFilter==='fee_risk')d=d.filter(s=>s.fee_label===2);
+  else if(curFilter==='overall_risk')d=d.filter(s=>combinedRisk(s)>=65);
   else if(curFilter==='safe')d=d.filter(s=>!s.is_anomaly&&s.fee_label===0);
   if(sortKey==='risk_desc')d.sort((a,b)=>b.risk_score-a.risk_score);
   else if(sortKey==='risk_asc')d.sort((a,b)=>a.risk_score-b.risk_score);
   else if(sortKey==='att_desc')d.sort((a,b)=>b.attendance_rate-a.attendance_rate);
   else if(sortKey==='att_asc')d.sort((a,b)=>a.attendance_rate-b.attendance_rate);
   else if(sortKey==='fee_desc')d.sort((a,b)=>b.fee_prob-a.fee_prob);
+else if(sortKey==='overall_desc')d.sort((a,b)=>combinedRisk(b)-combinedRisk(a));
+else if(sortKey==='overall_asc')d.sort((a,b)=>combinedRisk(a)-combinedRisk(b));
   filtered=d;page=1;render();
+}
+
+function riskFactorInfo(fee_prob){
+  if(fee_prob>=70) return {label:'HIGH RISK',   color:'#dc2626', bg:'#fee2e2'};
+  if(fee_prob>=35) return {label:'MEDIUM RISK', color:'#d97706', bg:'#fef3c7'};
+  return                  {label:'LOW RISK',    color:'#16a34a', bg:'#dcfce7'};
+}
+
+function combinedRisk(s){
+  return (s.risk_score*0.5) + (s.fee_prob*0.5);
+}
+function overallInfo(combined){
+  if(combined>=65) return {label:'High Risk',   color:'#dc2626'};
+  if(combined>=35) return {label:'Medium Risk', color:'#d97706'};
+  return                  {label:'Low Risk',    color:'#16a34a'};
 }
 
 function render(){
@@ -109,24 +154,30 @@ function render(){
   const total=filtered.length,pages=Math.ceil(total/PER_PAGE);
   const sl=filtered.slice((page-1)*PER_PAGE,page*PER_PAGE);
   if(!sl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No students found.</td></tr>';pg.innerHTML='';return;}
-  
+
   tb.innerHTML=sl.map(s=>{
     const ac=s.attendance_rate>=80?'ok':s.attendance_rate>=60?'warn':'danger';
     const rc=s.risk_score>70?'danger':s.risk_score>40?'warn':'ok';
-    const fl=['On Time','Late','Default'][s.fee_label];
-    const fc=['ontime','late','default'][s.fee_label];
-    const ov=s.is_anomaly||s.fee_label===2?'critical':s.fee_label===1||s.risk_score>40?'atrisk':'normal';
-    const ovl=['Normal','At Risk','Critical'];const ovt=s.is_anomaly||s.fee_label===2?2:s.fee_label===1||s.risk_score>40?1:0;
     const fpb=s.fee_prob>60?'danger':s.fee_prob>25?'warn':'ok';
     const ini=s.name.split(' ').map(w=>w[0]).join('').slice(0,2);
+    const rf=riskFactorInfo(s.fee_prob);
+    const combined=combinedRisk(s);
+    const ov=overallInfo(combined);
+
     return `<tr class="row" onclick="openModal('${s.id}')">
       <td><div class="cell-student"><div class="avatar">${ini}</div><div><div class="sname">${s.name}</div><div class="sid">${s.id}</div></div></div></td>
       <td><span class="class-badge">${s.student_class||'—'}</span></td>
       <td><div class="att-cell"><span class="${ac}">${s.attendance_rate}%</span><div class="minibar"><div class="minifill ${ac}" style="width:${s.attendance_rate}%"></div></div></div></td>
       <td><span class="risk-val ${rc}">${s.risk_score}</span></td>
-      <td><span class="badge ${fc}">${fl}</span></td>
+      <td><span class="badge" style="background:${rf.bg};color:${rf.color};font-weight:700;">${rf.label}</span></td>
       <td><div class="att-cell"><span class="${fpb}">${s.fee_prob}%</span><div class="minibar"><div class="minifill ${fpb}" style="width:${Math.min(s.fee_prob,100)}%"></div></div></div></td>
-      <td><span class="badge ${ov}">${ovl[ovt]}</span></td>
+      <td>
+        <div class="att-cell" title="Attendance weight: 40% | Fee weight: 60%">
+          <span style="color:${ov.color};font-weight:700;">${combined.toFixed(0)}%</span>
+          <div class="minibar"><div class="minifill" style="width:${Math.min(combined,100)}%;background:${ov.color};"></div></div>
+          <div style="font-size:10px;font-weight:600;color:${ov.color};margin-top:2px;">${ov.label}</div>
+        </div>
+      </td>
       <td><button class="view-btn" onclick="event.stopPropagation();openModal('${s.id}')">View</button></td>
     </tr>`;
   }).join('');
@@ -142,7 +193,6 @@ function render(){
   pg.innerHTML=pgHTML;
 }
 
-// Tabs
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');curFilter=t.dataset.f;applyFilters();
@@ -150,24 +200,89 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 document.getElementById('searchInput').addEventListener('input',()=>{clearTimeout(window._st);window._st=setTimeout(applyFilters,250);});
 document.getElementById('sortSel').addEventListener('change',e=>{sortKey=e.target.value;applyFilters();});
 
-// Reason builder
-function reasons(s){
-  const a=[],f=[];
-  if(s.is_anomaly){
-    if(s.attendance_rate<50)a.push(`Critical attendance at ${s.attendance_rate}% — far below the 75% safe threshold. IsolationForest flagged this as a severe anomaly.`);
-    else if(s.attendance_rate<70)a.push(`Attendance dropped to ${s.attendance_rate}%, triggering the anomaly detection model.`);
-    else a.push(`Despite ${s.attendance_rate}% overall, the absence pattern is irregular — a sudden recent drop was detected.`);
-    if(s.absence_streak>=5)a.push(`${s.absence_streak}-day consecutive absence streak detected — possible family crisis or health issue.`);
-    if(s.absence_30d>=8)a.push(`${s.absence_30d} absences in the last 30 days — sharp recent deterioration.`);
-  }
-  if(s.fee_label===2){
-    f.push(`Student has defaulted with ₹${s.outstanding.toLocaleString()} outstanding.`);
-    if(s.days_late>30)f.push(`Payment is ${s.days_late} days overdue — confirmed default.`);
-  }else if(s.fee_label===1){
-    f.push(`Late payment pattern — ${s.days_late} days since last payment.`);
-  }
-  if(s.fee_prob>15&&s.fee_label<2)f.push(`AI predicts ${s.fee_prob}% chance of future default — early intervention recommended.`);
-  return{a,f};
+function factor1(s){
+  if(s.t2_status===null||s.t2_status===undefined) return null;
+  const v=s.t2_status;
+  return {icon:'📋',title:'Previous Term Payment',value:['Paid On Time','Paid Late','Defaulted'][v],color:['#16a34a','#d97706','#dc2626'][v],impact:['LOW IMPACT','MEDIUM IMPACT','HIGH IMPACT'][v]};
+}
+function factor2(s){
+  const amt=s.outstanding;
+  let impact,color;
+  if(amt>4000){impact='HIGH IMPACT';color='#dc2626';}else if(amt>1500){impact='MEDIUM IMPACT';color='#d97706';}else{impact='LOW IMPACT';color='#16a34a';}
+  return {icon:'💰',title:'Current Outstanding Amount',value:`₹${Math.round(amt).toLocaleString()}`,color,impact};
+}
+function factor3(s){
+  const d=s.days_late;
+  let impact,color;
+  if(d>60){impact='HIGH IMPACT';color='#dc2626';}else if(d>20){impact='MEDIUM IMPACT';color='#d97706';}else{impact='LOW IMPACT';color='#16a34a';}
+  return {icon:'📅',title:'Days Since Last Payment',value:`${d} days overdue`,color,impact};
+}
+function factor4(s){
+  if(s.income_encoded===null||s.income_encoded===undefined) return null;
+  const v=s.income_encoded;
+  let impact,color;
+  if(v===2){impact='HIGH IMPACT';color='#dc2626';}else if(v===1){impact='MEDIUM IMPACT';color='#d97706';}else{impact='LOW IMPACT';color='#16a34a';}
+  return {icon:'🏠',title:'Income Level',value:['High Income Family','Medium Income Family','Low Income Family'][v],color,impact};
+}
+function factor5(s){
+  if(s.sibling_count===null||s.sibling_count===undefined) return null;
+  const v=s.sibling_count;
+  let impact,color;
+  if(v>=3){impact='HIGH IMPACT';color='#dc2626';}else if(v>=1){impact='MEDIUM IMPACT';color='#d97706';}else{impact='LOW IMPACT';color='#16a34a';}
+  return {icon:'👨‍👩‍👧‍👦',title:'Family Burden',value:`${v} siblings in school`,color,impact};
+}
+function factor6(s){
+  if(s.escalating===null||s.escalating===undefined||s.both_terms_late===null||s.both_terms_late===undefined) return null;
+  let value,impact,color;
+  if(s.escalating===1){value='Getting Worse Each Term';impact='HIGH IMPACT';color='#dc2626';}
+  else if(s.both_terms_late===1){value='Late in Both Terms';impact='MEDIUM IMPACT';color='#d97706';}
+  else{value='Stable Payment History';impact='LOW IMPACT';color='#16a34a';}
+  return {icon:'📈',title:'Payment Trend',value,color,impact};
+}
+function factorCardHTML(f){
+  if(!f) return '';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;background:#fff;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;flex-shrink:0;">${f.icon}</span>
+      <div>
+        <div style="font-size:11px;color:#64748b;font-weight:600;">${f.title}</div>
+        <div style="font-size:14px;color:#1e293b;font-weight:700;">${f.value}</div>
+      </div>
+    </div>
+    <span style="font-size:11px;font-weight:700;color:${f.color};background:${f.color}1a;padding:4px 10px;border-radius:20px;white-space:nowrap;">${f.impact}</span>
+  </div>`;
+}
+
+function verdictBoxHTML(fee_prob){
+  if(fee_prob>=70) return `<div style="background:#fee2e2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin-top:18px;"><div style="font-size:16px;font-weight:800;color:#dc2626;">⛔ HIGH DEFAULT RISK — ${fee_prob}%</div><div style="font-size:13px;color:#991b1b;margin-top:4px;">Immediate intervention recommended. Contact parents within 3 days.</div></div>`;
+  if(fee_prob>=35) return `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:16px;margin-top:18px;"><div style="font-size:16px;font-weight:800;color:#d97706;">⚠️ MEDIUM DEFAULT RISK — ${fee_prob}%</div><div style="font-size:13px;color:#92400e;margin-top:4px;">Monitor closely. Send payment reminder.</div></div>`;
+  return `<div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-top:18px;"><div style="font-size:16px;font-weight:800;color:#16a34a;">✅ LOW DEFAULT RISK — ${fee_prob}%</div><div style="font-size:13px;color:#166534;margin-top:4px;">No immediate action required.</div></div>`;
+}
+
+function buildCalendarHTML(history){
+  if(!history||!history.length) return '<div style="text-align:center;color:#94a3b8;padding:16px;font-size:12px;">No attendance history available.</div>';
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dow=['S','M','T','W','T','F','S'];
+  const months={};
+  history.forEach(h=>{ const ym=h.date.slice(0,7); (months[ym]=months[ym]||[]).push(h); });
+  const cards=Object.keys(months).sort().map(ym=>{
+    const [year,month]=ym.split('-').map(Number);
+    const daysInMonth=new Date(year,month,0).getDate();
+    const firstWeekday=new Date(year,month-1,1).getDay();
+    const byDay={};
+    months[ym].forEach(h=>{ byDay[parseInt(h.date.slice(8,10),10)]=h.is_present; });
+    let grid=dow.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+    for(let i=0;i<firstWeekday;i++) grid+=`<div class="cal-cell empty"></div>`;
+    for(let d=1;d<=daysInMonth;d++){
+      if(byDay.hasOwnProperty(d)){
+        grid+=`<div class="cal-cell ${byDay[d]?'present':'absent'}" title="${d} ${byDay[d]?'Present':'Absent'}">${d}</div>`;
+      }else{
+        grid+=`<div class="cal-cell no-data" title="No record">${d}</div>`;
+      }
+    }
+    return `<div class="cal-card"><div class="cal-card-title">${monthNames[month-1]} ${year}</div><div class="cal-grid">${grid}</div></div>`;
+  }).join('');
+  return `<div class="cal-months-row">${cards}</div>`;
 }
 
 async function openModal(id){
@@ -176,31 +291,38 @@ async function openModal(id){
   const s=await fetch(`/api/student/${id}`).then(r=>r.json());
   document.getElementById('mName').textContent=s.name;
   document.getElementById('mSub').textContent=`${s.id} · ${s.student_class||''}`;
-  const{a,f}=reasons(s);
-  const ac2=s.attendance_rate>=80?'#16a34a':s.attendance_rate>=60?'#d97706':'#dc2626';
-  const rc2=s.risk_score>70?'#dc2626':s.risk_score>40?'#d97706':'#16a34a';
-  const fc2=['#16a34a','#d97706','#dc2626'][s.fee_label];
-  const fs=['On Time 🟢','Late 🟡','Default 🔴'][s.fee_label];
-  let rhtml='';
-  if(a.length)rhtml+=`<div class="reason-box danger"><h4>⚠️ Attendance Anomaly Reason</h4>${a.map(x=>`<p>• ${x}</p>`).join('')}</div>`;
-  if(f.length)rhtml+=`<div class="reason-box ${s.fee_label===2?'danger':'warn'}"><h4>${s.fee_label===2?'🔴 Fee Default Reason':'🟡 Fee Warning'}</h4>${f.map(x=>`<p>• ${x}</p>`).join('')}</div>`;
-  if(!a.length&&!f.length)rhtml='<div class="reason-box ok"><h4>✅ No Risk Detected</h4><p>This student has normal attendance and payment patterns.</p></div>';
+  const combined=combinedRisk(s);
+  const ov=overallInfo(combined);
 
-  document.getElementById('mBody').innerHTML=`${rhtml}
-    <div class="big-ring"><div class="ring-stat"><div class="big" style="color:${ac2}">${s.attendance_rate}%</div><div class="desc">Attendance</div></div><div class="ring-stat"><div class="big" style="color:${rc2}">${s.risk_score}</div><div class="desc">Risk /100</div></div><div class="ring-stat"><div class="big" style="color:${fc2}">${s.fee_prob}%</div><div class="desc">Default Prob</div></div></div>
-    <div class="sec-title">📋 Attendance</div>
-    <div class="info-row"><span class="lbl">Status</span><span class="val">${s.is_anomaly?'⚠️ Flagged':'✅ Normal'}</span></div>
+  let bodyHTML=`
+    <div class="info-row"><span class="lbl">Combined Risk</span><span class="val">
+      <span style="background:${ov.color}1a;color:${ov.color};font-weight:700;padding:4px 10px;border-radius:20px;font-size:12px;">${ov.label} (${combined.toFixed(0)}%)</span>
+    </span></div>
+    <div class="sec-title">📋 Attendance Summary</div>
+    <div class="info-row"><span class="lbl">Attendance Rate</span><span class="val">${s.attendance_rate}%</span></div>
     <div class="info-row"><span class="lbl">Longest Absence Streak</span><span class="val">${s.absence_streak} days</span></div>
     <div class="info-row"><span class="lbl">Absences (Last 30 Days)</span><span class="val">${s.absence_30d}</span></div>
-    <div class="sec-title">📅 Last 30 Days</div><div class="chart-wrap"><canvas id="attChart"></canvas></div>
-    <div class="sec-title">💰 Fees</div>
-    <div class="info-row"><span class="lbl">Payment Status</span><span class="val">${fs}</span></div>
-    <div class="info-row"><span class="lbl">Outstanding</span><span class="val">₹${s.outstanding.toLocaleString()}</span></div>
-    <div class="info-row"><span class="lbl">Days Since Payment</span><span class="val">${s.days_late}</span></div>
-    <div class="fee-bar"><div class="fee-bar-label"><span>Default Probability</span><span style="font-weight:600;color:${fc2}">${s.fee_prob}%</span></div><div class="fee-track"><div class="fee-fill" style="width:${Math.min(s.fee_prob,100)}%;background:${fc2}"></div></div></div>`;
-  if(chartInst)chartInst.destroy();
-  const lbl=s.history.map(h=>h.date.slice(5)),dt=s.history.map(h=>h.is_present);
-  chartInst=new Chart(document.getElementById('attChart'),{type:'bar',data:{labels:lbl,datasets:[{data:dt,backgroundColor:dt.map(v=>v?'rgba(22,163,74,.7)':'rgba(220,38,38,.7)'),borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw?'Present':'Absent'}}},scales:{y:{min:0,max:1,ticks:{callback:v=>v===1?'P':v===0?'A':'',stepSize:1},grid:{color:'#f1f5f9'}},x:{ticks:{color:'#94a3b8',maxRotation:45,font:{size:8}},grid:{display:false}}}}});
+    ${s.is_anomaly?'<div class="info-row"><span class="val" style="color:#dc2626;font-weight:700;">⚠️ Attendance Anomaly Detected</span></div>':''}
+    <div class="sec-title" style="margin-top:14px;">📅 Attendance Calendar (Last 30 Days)</div>
+    <div id="attCalendar"></div>
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#dcfce7;border:0.5px solid #16a34a;"></div>Present</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#fee2e2;border:0.5px solid #dc2626;"></div>Absent</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#f1f5f9;border:0.5px solid #cbd5e1;"></div>No record</div>
+    </div>
+    <div class="sec-title">💰 Fee Default Risk Analysis</div>
+    <div style="font-size:13px;color:#64748b;font-weight:700;margin-bottom:10px;">Why is this student at risk?</div>
+    ${factorCardHTML(factor1(s))}
+    ${factorCardHTML(factor2(s))}
+    ${factorCardHTML(factor3(s))}
+    ${factorCardHTML(factor4(s))}
+    ${factorCardHTML(factor5(s))}
+    ${factorCardHTML(factor6(s))}
+    ${verdictBoxHTML(s.fee_prob)}
+  `;
+
+  document.getElementById('mBody').innerHTML=bodyHTML;
+  document.getElementById('attCalendar').innerHTML=buildCalendarHTML(s.history);
 }
 function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});

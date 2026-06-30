@@ -53,6 +53,16 @@ from sklearn.metrics import (
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 RANDOM_STATE = 42
+import os
+
+
+print("Working directory:", os.getcwd())
+print("Resolved path:", os.path.abspath("data/fee_features_v3.csv"))
+
+df = pd.read_csv("data/fee_features_v3.csv")
+print("Row count:", len(df))
+print("Default count:", (df["label"] == 2).sum())
+print(df["student_id"].head(3).tolist())
 
 # ---------------------------------------------------------------------------
 # Feature list — order matters because the FastAPI backend builds a feature

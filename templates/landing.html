@@ -18,14 +18,14 @@
     <div class="gn-logo">K4</div>
     <div class="gn-brand-text">
       <div class="gn-brand-name"><span>KALNET</span> AI-4</div>
-      <div class="gn-brand-sub">School Attendance Anomaly Detection Fee Default Prediction Platform</div>
+      <div class="gn-brand-sub">Predictive intelligence for modern schools</div>
     </div>
   </a>
   <div class="gn-links">
-    <a class="gn-btn active" href="/">🏠 Home</a>
-    <a class="gn-btn" href="/students">👥 Students</a>
-    <a class="gn-btn" href="/dashboard">📊 Admin</a>
-    <a class="gn-btn" href="/docs" target="_blank">📖 API Docs</a>
+    <a class="gn-btn active" href="/">Home</a>
+    <a class="gn-btn" href="/students">Students</a>
+    <a class="gn-btn" href="/dashboard">Admin</a>
+    <a class="gn-btn" href="/docs" target="_blank">API Docs</a>
   </div>
   <div style="display: flex; align-items: center;">
     <span class="gn-badge">Live AIML</span>
@@ -39,26 +39,25 @@
 
     <!-- Left: Content -->
     <div class="hero-content">
-      <span class="pill blue hero-badge">⚡ Live Machine Learning · Scikit-learn Only</span>
-      <h1 class="hero-title">
-        <span class="gradient-text">School Intelligence</span><br/>
-        That Saves Students
-      </h1>
+      <span class="pill blue hero-badge"> Live Machine Learning · Scikit-learn Only</span>
+      <h1 class="hero-title" style="font-size: 3rem;">
+        <span class="gradient-text">Predictive intelligence </span><br/>
+        For modern schools</h1>
       <p class="hero-sub">
         KALNET AI-4 uses unsupervised anomaly detection and gradient boosting to flag
         attendance crises and predict fee defaults — days before they become disasters.
       </p>
       <div class="hero-cta-row">
         <a class="btn-primary" href="/students">
-          <span>🚀</span> Open Student Directory
+          <span></span> Open Student Directory
         </a>
         <a class="btn-secondary" href="/dashboard">
-          <span>📊</span> Admin Analytics
+          <span></span> Admin Analytics
         </a>
       </div>
       <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:8px;">
         <span class="pill green">✓ 63% Anomaly Recall</span>
-        <span class="pill amber">✓ ≥70% Default Recall</span>
+        <span class="pill amber">✓ ≥95% Default Recall</span>
         <span class="pill blue">✓ No Paid APIs</span>
       </div>
     </div>
@@ -67,7 +66,7 @@
     <div class="hero-visual" id="heroVisual">
       <div class="hero-card">
         <div class="hero-card-header">
-          <span class="hero-card-title">🏫 Total Students Monitored</span>
+          <span class="hero-card-title">Total Students Monitored</span>
           <span class="pill blue" style="font-size:10px;">LIVE</span>
         </div>
         <div class="hero-stat blue" id="hTotal">—</div>
@@ -75,23 +74,23 @@
       <div class="hero-stats-row">
         <div class="mini-stat">
           <div class="mini-stat-num" id="hAnom" style="color:#f87171;">—</div>
-          <div class="mini-stat-lbl">⚠️ Attendance Anomalies</div>
+          <div class="mini-stat-lbl">Attendance Anomalies</div>
         </div>
         <div class="mini-stat">
           <div class="mini-stat-num" id="hFee" style="color:#fbbf24;">—</div>
-          <div class="mini-stat-lbl">💸 Fee Defaults</div>
+          <div class="mini-stat-lbl">Fee Defaults</div>
         </div>
         <div class="mini-stat">
-          <div class="mini-stat-num" id="hLate" style="color:#34d399;">—</div>
-          <div class="mini-stat-lbl">🕒 Late Payers</div>
+          <div class="mini-stat-num" id="hHighRisk" style="color:#a78bfa;">—</div>
+          <div class="mini-stat-lbl">Overall High Risk</div>
         </div>
         <div class="mini-stat">
           <div class="mini-stat-num" id="hSafe" style="color:#818cf8;">—</div>
-          <div class="mini-stat-lbl">✅ Safe Students</div>
+          <div class="mini-stat-lbl">Safe Students</div>
         </div>
       </div>
       <div class="hero-card" style="background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.3);">
-        <div class="hero-card-title" style="margin-bottom:10px;">🤖 AI Models Active</div>
+        <div class="hero-card-title" style="margin-bottom:10px;">AI Models Active</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <span class="pill blue" style="font-size:11px;">IsolationForest</span>
           <span class="pill blue" style="font-size:11px;">GradientBoosting</span>
@@ -376,17 +375,37 @@
 </footer>
 
 <script>
+/* ── Overall combined risk helper, same formula used on the
+   student directory (Overall column) and admin dashboard ───── */
+function combinedRisk(s) {
+  return (s.risk_score * 0.5) + (s.fee_prob * 0.5);
+}
+function isOverallHighRisk(s) {
+  return combinedRisk(s) >= 65;
+}
+
 /* ── Fetch live stats from existing API ───────────────────── */
 async function loadStats() {
   try {
-    const r = await fetch('/api/summary');
-    const d = await r.json();
-    animCount('hTotal', d.total);
-    animCount('hAnom',  d.anomalies);
-    animCount('hFee',   d.fee_defaults);
-    animCount('hLate',  d.fee_late);
-    animCount('st1',    d.total);
-    animCount('st2',    d.anomalies);
+    const [summaryRes, studentsRes] = await Promise.all([
+      fetch('/api/summary'),
+      fetch('/api/students'),
+    ]);
+    const d = await summaryRes.json();
+    const students = await studentsRes.json();
+
+    // V3's fee model is binary (ontime vs default), so fee_late is
+    // always 0 and isn't a useful hero stat. Show "Overall High Risk"
+    // instead — students whose blended attendance + fee risk score
+    // is >=65%, computed client-side from fee_prob + risk_score.
+    const highRiskCount = students.filter(isOverallHighRisk).length;
+
+    animCount('hTotal',    d.total);
+    animCount('hAnom',     d.anomalies);
+    animCount('hFee',      d.fee_defaults);
+    animCount('hHighRisk', highRiskCount);
+    animCount('st1',       d.total);
+    animCount('st2',       d.anomalies);
     const safe = d.total - d.anomalies - d.fee_defaults;
     animCount('hSafe',  Math.max(0, safe));
   } catch(e) {
@@ -394,7 +413,7 @@ async function loadStats() {
     ['hTotal','st1'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '500'; });
     ['hAnom','st2'].forEach(id  => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
     ['hFee'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
-    ['hLate'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+    ['hHighRisk'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
     ['hSafe'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
   }
 }

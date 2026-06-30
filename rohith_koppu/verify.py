@@ -7,6 +7,15 @@ Task: Verify that engineered features make intuitive sense before handing
       label distribution.
 
 Run this AFTER feature_engineering.py and BEFORE training the models.
+
+NOTE (fee section updated to V3):
+  - Old script checked fee_features.csv with single-snapshot columns
+    (days_since_last_payment, previous_term_status, total_outstanding).
+  - V3 replaced this with fee_features_v3.csv: two terms of history
+    (t1_*, t2_*) plus derived trend features (outstanding_growth,
+    days_late_trend, both_terms_late, escalating, avg_outstanding,
+    max_days_late), per Are's train_v3.py spec. Checks below verify
+    the new schema and trend-based intuitions instead.
 """
 
 import pandas as pd
@@ -108,18 +117,24 @@ def check_attendance_features(df_att: pd.DataFrame) -> bool:
 
 
 def check_fee_features(df_fee: pd.DataFrame) -> bool:
-    """Verify fee feature CSV is clean and intuitive."""
+    """Verify fee feature CSV (V3, two-term schema) is clean and intuitive."""
     print("\n" + "=" * 60)
-    print("  [2/2] Fee Feature Verification")
+    print("  [2/2] Fee Feature Verification (V3 — two-term schema)")
     print("=" * 60)
 
     passed = True
 
     # ── Shape ─────────────────────────────────────────────────────
     print(f"\n  Shape          : {df_fee.shape[0]} rows × {df_fee.shape[1]} cols")
-    expected_cols = {'student_id', 'days_since_last_payment', 'previous_term_status',
-                     'total_outstanding', 'income_encoded', 'transport_user',
-                     'sibling_count', 'label'}
+    expected_cols = {
+        'student_id',
+        't1_status', 't1_outstanding', 't1_days_late',
+        't2_status', 't2_outstanding', 't2_days_late',
+        'income_encoded', 'sibling_count', 'transport_user',
+        'outstanding_growth', 'days_late_trend', 'both_terms_late',
+        'escalating', 'avg_outstanding', 'max_days_late',
+        'label',
+    }
     missing = expected_cols - set(df_fee.columns)
     if missing:
         print(f"  ❌ Missing columns: {missing}")
@@ -136,19 +151,75 @@ def check_fee_features(df_fee: pd.DataFrame) -> bool:
         print(f"  ✅ No NaN values")
 
     # ── Value ranges ──────────────────────────────────────────────
-    for col, expected in [
-        ('income_encoded',       (0, 2)),
-        ('transport_user',       (0, 1)),
-        ('sibling_count',        (0, 3)),
-        ('previous_term_status', (0, 2)),
-        ('label',                (0, 2)),
-    ]:
+    # NOTE: outstanding_growth and days_late_trend can legitimately go
+    # negative (a student's situation can improve term-to-term), so they
+    # are checked separately below, not against a [0, max] range.
+    range_checks = [
+        ('t1_status',         (0, 2)),
+        ('t1_outstanding',    (0, 8000)),
+        ('t1_days_late',      (0, 120)),
+        ('t2_status',         (0, 2)),
+        ('t2_outstanding',    (0, 8000)),
+        ('t2_days_late',      (0, 120)),
+        ('income_encoded',    (0, 2)),
+        ('transport_user',    (0, 1)),
+        ('sibling_count',     (0, 5)),
+        ('both_terms_late',   (0, 1)),
+        ('escalating',        (0, 1)),
+        ('avg_outstanding',   (0, 8000)),
+        ('max_days_late',     (0, 120)),
+        ('label',             (0, 2)),
+    ]
+    for col, expected in range_checks:
+        if col not in df_fee.columns:
+            continue
         mn, mx = df_fee[col].min(), df_fee[col].max()
         if mn < expected[0] or mx > expected[1]:
             print(f"  ❌ {col} out of range {expected}: min={mn}, max={mx}")
             passed = False
         else:
             print(f"  ✅ {col} range OK: [{mn}, {mx}]")
+
+    # outstanding_growth / days_late_trend: just sanity-check they're not
+    # absurdly large in magnitude rather than enforcing a fixed range,
+    # since legitimate values span both improving and worsening students.
+    for col, abs_cap in [('outstanding_growth', 8000), ('days_late_trend', 120)]:
+        if col not in df_fee.columns:
+            continue
+        mn, mx = df_fee[col].min(), df_fee[col].max()
+        if abs(mn) > abs_cap or abs(mx) > abs_cap:
+            print(f"  ❌ {col} magnitude implausible: min={mn}, max={mx}")
+            passed = False
+        else:
+            print(f"  ✅ {col} range OK: [{mn}, {mx}]")
+
+    # ── Derived feature consistency ──────────────────────────────
+    # Spot-check that the trend features were actually derived correctly
+    # from t1_*/t2_* rather than e.g. copy-pasted or stale from a join.
+    recomputed_growth = df_fee['t2_outstanding'] - df_fee['t1_outstanding']
+    growth_mismatch = (recomputed_growth != df_fee['outstanding_growth']).sum()
+    if growth_mismatch > 0:
+        print(f"  ❌ outstanding_growth mismatch in {growth_mismatch} rows "
+              f"(t2_outstanding - t1_outstanding != outstanding_growth)")
+        passed = False
+    else:
+        print(f"  ✅ outstanding_growth correctly derived in all rows")
+
+    recomputed_both_late = ((df_fee['t1_status'] >= 1) & (df_fee['t2_status'] >= 1)).astype(int)
+    both_late_mismatch = (recomputed_both_late != df_fee['both_terms_late']).sum()
+    if both_late_mismatch > 0:
+        print(f"  ❌ both_terms_late mismatch in {both_late_mismatch} rows")
+        passed = False
+    else:
+        print(f"  ✅ both_terms_late correctly derived in all rows")
+
+    recomputed_escalating = (df_fee['t2_status'] > df_fee['t1_status']).astype(int)
+    escalating_mismatch = (recomputed_escalating != df_fee['escalating']).sum()
+    if escalating_mismatch > 0:
+        print(f"  ❌ escalating mismatch in {escalating_mismatch} rows")
+        passed = False
+    else:
+        print(f"  ✅ escalating correctly derived in all rows")
 
     # ── Label distribution ────────────────────────────────────────
     label_dist = df_fee['label'].value_counts().sort_index()
@@ -158,18 +229,24 @@ def check_fee_features(df_fee: pd.DataFrame) -> bool:
     for k, v in label_dist.items():
         print(f"    {labels.get(k, k)} ({k}): {v:>4}  ({v/total*100:.1f}%)")
 
-    # ── Intuition check: defaulters should have higher days_late ──
-    grp = df_fee.groupby('label')['days_since_last_payment'].mean()
-    print(f"\n  Intuition Check — Avg Days Late by Label:")
+    default_pct = label_dist.get(2, 0) / total * 100
+    if not (3 <= default_pct <= 8):
+        print(f"  ⚠️  Default % is {default_pct:.1f}% — expected ~5%. Check generator.")
+    else:
+        print(f"  ✅ Default rate {default_pct:.1f}% is within expected 3–8% range")
+
+    # ── Intuition check: defaulters should have higher t2_days_late ──
+    grp = df_fee.groupby('label')['t2_days_late'].mean()
+    print(f"\n  Intuition Check — Avg t2_days_late by Label:")
     for k, v in grp.items():
         print(f"    {labels.get(k,k)}: {v:.1f} days")
     if grp.get(2, 0) > grp.get(1, 0) > grp.get(0, 0):
-        print(f"  ✅ Days late increases correctly: On Time < Late < Default")
+        print(f"  ✅ t2_days_late increases correctly: On Time < Late < Default")
     else:
-        print(f"  ⚠️  Days late ordering not strictly increasing — check data")
+        print(f"  ⚠️  t2_days_late ordering not strictly increasing — check data")
 
-    # ── Intuition check: defaulters should have higher outstanding ──
-    grp2 = df_fee.groupby('label')['total_outstanding'].mean()
+    # ── Intuition check: defaulters should have higher avg_outstanding ──
+    grp2 = df_fee.groupby('label')['avg_outstanding'].mean()
     print(f"\n  Intuition Check — Avg Outstanding by Label:")
     for k, v in grp2.items():
         print(f"    {labels.get(k,k)}: ₹{v:,.0f}")
@@ -178,6 +255,29 @@ def check_fee_features(df_fee: pd.DataFrame) -> bool:
     else:
         print(f"  ❌ Defaulters do NOT have higher outstanding — data issue!")
         passed = False
+
+    # ── Intuition check: escalating status correlates with default ───
+    escalating_default = df_fee[df_fee['label'] == 2]['escalating'].mean()
+    escalating_ontime  = df_fee[df_fee['label'] == 0]['escalating'].mean()
+    print(f"\n  Intuition Check — Escalating Status vs Default:")
+    print(f"    % escalating (On Time): {escalating_ontime:.1%}")
+    print(f"    % escalating (Default): {escalating_default:.1%}")
+    if escalating_default > escalating_ontime:
+        print(f"  ✅ Defaulters escalate more often — makes sense!")
+    else:
+        print(f"  ❌ Defaulters do NOT escalate more often — data issue!")
+        passed = False
+
+    # ── Intuition check: both_terms_late correlates with default ─────
+    both_late_default = df_fee[df_fee['label'] == 2]['both_terms_late'].mean()
+    both_late_ontime  = df_fee[df_fee['label'] == 0]['both_terms_late'].mean()
+    print(f"\n  Intuition Check — Both Terms Late vs Default:")
+    print(f"    % both_terms_late (On Time): {both_late_ontime:.1%}")
+    print(f"    % both_terms_late (Default): {both_late_default:.1%}")
+    if both_late_default > both_late_ontime:
+        print(f"  ✅ Defaulters are late in both terms more often — makes sense!")
+    else:
+        print(f"  ⚠️  both_terms_late not strongly predictive (may be small sample)")
 
     # ── Intuition check: low income → more defaults ──────────────
     income_default = df_fee[df_fee['label'] == 2]['income_encoded'].mean()
@@ -200,11 +300,13 @@ def run_verification():
     print("=" * 60)
 
     att_path = 'data/attendance_features.csv'
-    fee_path = 'data/fee_features.csv'
+    fee_path = 'data/fee_features_v3.csv'
 
     if not os.path.exists(att_path) or not os.path.exists(fee_path):
         print("\n❌ Feature CSVs not found.")
         print("   Run: python mohammed_kaif/feature_engineering.py")
+        print(f"   Expected: {att_path}")
+        print(f"   Expected: {fee_path}")
         sys.exit(1)
 
     df_att = pd.read_csv(att_path)
@@ -216,7 +318,7 @@ def run_verification():
     print("\n" + "=" * 60)
     if att_ok and fee_ok:
         print("  ✅ ALL CHECKS PASSED — Features are ready for model training")
-        print("  → Hand off to Om (attendance) and Are (fee) to train models")
+        print("  → Hand off to Om (attendance) and Are (fee, train_v3.py) to train models")
     else:
         print("  ❌ SOME CHECKS FAILED — Review issues above before training")
     print("=" * 60)
