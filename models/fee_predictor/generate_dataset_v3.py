@@ -1,7 +1,7 @@
 """
 ========================================================
 KALNET — Fee Default Dataset Generator (3-Term Version)
-File   : models/fee_predictor/generate_dataset.py
+File   : models/fee_predictor/generate_dataset_v3.py
 Author : Are Samhith (ML Engineer 2)
 
 WHAT THIS SCRIPT DOES:
@@ -56,7 +56,7 @@ print(f"[CONFIG] Random seed          : {RANDOM_SEED}")
 # ========================================================
 print("\n[STEP 1] Generating static student features...")
 
-student_ids = [f"STU_{i:03d}" for i in range(1, N_STUDENTS + 1)]
+student_ids = [f"SYN_{i:04d}" for i in range(1, N_STUDENTS + 1)]
 
 # income_encoded
 #   0 = High income   → 30% of students
@@ -336,7 +336,7 @@ nodef_mask = df["label"] == 0
 print(f"\n[CHECK 1] Default rate")
 print(f"  Target : {TARGET_DEFAULT_RATE*100:.1f}%")
 print(f"  Actual : {actual_rate*100:.1f}%")
-print(f"  Status : {'PASS' if abs(actual_rate - TARGET_DEFAULT_RATE) < 0.01 else 'CHECK'}")
+print(f"  Status : {'PASS ✅' if abs(actual_rate - TARGET_DEFAULT_RATE) < 0.01 else 'CHECK ⚠️'}")
 
 # Check 2: Feature correlation
 print(f"\n[CHECK 2] Defaulters vs Non-defaulters (defaulters must be higher)")
@@ -412,6 +412,7 @@ for _, row in df[df["label"]==0].head(3).iterrows():
 # ========================================================
 # STEP 11: SAVE
 # ========================================================
+os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 df.to_csv(OUTPUT_FILE, index=False)
 
 print(f"\n[SAVE] {OUTPUT_FILE} saved")
@@ -419,7 +420,7 @@ print(f"[SAVE] {N_STUDENTS} rows | {n_defaulters} defaulters | {len(df.columns)}
 
 print("""
 ========================================================
-NEXT STEP: train_improved_v2.py
+NEXT STEP: are_samhith/train_v3.py
 ========================================================
 
 FEATURE_COLS = [

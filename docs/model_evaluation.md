@@ -53,17 +53,24 @@ Actual Anomaly     26                 44
 
 ---
 
-## 2. Fee Default Prediction — GradientBoostingClassifier
+## 2. Fee Default Prediction — GradientBoostingClassifier (V3)
 
 ### Algorithm
-- `sklearn.ensemble.GradientBoostingClassifier(n_estimators=100, random_state=42)`
-- 80/20 stratified train-test split — critical for the imbalanced 5% default class
-- Predicts 3 classes: `0 = On Time`, `1 = Late`, `2 = Default`
+- `sklearn.ensemble.GradientBoostingClassifier`, hyperparameters tuned via Optuna (30 trials)
+- Binary target: `0 = no default`, `1 = default` (was 3-class in V1/V2; "late" payments are no longer a separate prediction class)
+- Imbalance handled with `compute_sample_weight('balanced')` — no SMOTE
+- 80/20 stratified train-test split; decision threshold tuned via F2-score sweep with a recall floor of 0.75, stored in the model bundle (not the default 0.5 cutoff)
+- Bundle reports 5-fold CV AUC-ROC = **0.9972**, CV Avg Precision = **0.9466** from training time
 
-### Performance Metrics
+### Performance Metrics (this evaluation run)
 | Metric | Value | Target |
 |--------|-------|--------|
-| Recall (Default Class) | **76.83%** | ≥ 70% |
+| Recall (Default Class) | **80.00%** | ≥ 70% |
+| Precision (Default Class) | 22.47% | — |
+| F1-Score (Default Class) | 35.09% | — |
+| AUC-ROC | 0.9021 | — |
+| Avg Precision (PR-AUC) | 0.3925 | — |
+| Decision Threshold (bundle) | 0.550 | — |
 
 **Recall Target (≥ 70%): ✅ PASS**
 
@@ -71,35 +78,50 @@ Actual Anomaly     26                 44
 ```
               precision    recall  f1-score   support
 
-     On Time       0.88      0.88      0.88       333
-        Late       0.84      0.54      0.66        85
-     Default       0.56      0.77      0.65        82
+  No Default       0.99      0.85      0.92       475
+     Default       0.22      0.80      0.35        25
 
-    accuracy                           0.81       500
-   macro avg       0.76      0.73      0.73       500
-weighted avg       0.82      0.81      0.81       500
+    accuracy                           0.85       500
+   macro avg       0.61      0.83      0.63       500
+weighted avg       0.95      0.85      0.89       500
+```
+
+### Confusion Matrix
+```
+              Predicted No-Default  Predicted Default
+Actual No-Default  406                   69
+Actual Default     5                     20
 ```
 
 ### Feature Importances
 
 | Feature | Importance | Role |
 |---------|------------|------|
-| `total_outstanding` | 0.3794 | Total unpaid amount — direct financial risk signal |
-| `days_since_last_payment` | 0.2672 | Days overdue — strongest predictor of default |
-| `sibling_count` | 0.1358 | More siblings → more financial strain |
-| `income_encoded` | 0.1356 | Low income → higher default risk (H=0, M=1, L=2) |
-| `transport_user` | 0.0632 | Transport costs add financial burden |
-| `previous_term_status` | 0.0189 | Past behaviour predicts future behaviour |
+| `t2_outstanding` | 0.2989 | Term 2 unpaid amount — direct financial risk signal |
+| `avg_outstanding` | 0.2453 | Average unpaid amount across both terms |
+| `t2_status` | 0.1568 | Term 2 payment status — most recent behaviour |
+| `both_terms_late` | 0.1055 | Late in both terms — persistent risk pattern |
+| `t2_days_late` | 0.0563 | Term 2 days overdue — strongest single-term predictor |
+| `outstanding_growth` | 0.0467 | Change in unpaid amount term-to-term — rising debt signal |
+| `max_days_late` | 0.0347 | Worst days-overdue figure across both terms |
+| `t1_outstanding` | 0.0213 | Term 1 unpaid amount |
+| `days_late_trend` | 0.0192 | Change in days-overdue term-to-term — worsening lateness |
+| `t1_days_late` | 0.0053 | Term 1 days overdue |
+| `income_encoded` | 0.0048 | Low income → higher default risk (0=High, 1=Medium, 2=Low) |
+| `escalating` | 0.0027 | Status got worse term-to-term — early warning of default trajectory |
+| `t1_status` | 0.0012 | Term 1 payment status — early-term behaviour baseline |
+| `sibling_count` | 0.0011 | More siblings → more financial strain |
+| `transport_user` | 0.0002 | Transport costs add financial burden |
 
 ### Top 5 High-Risk Fee Predictions
 
-| Student ID | Default Probability | Outstanding | Days Late | Prev Status | Verdict |
-|------------|---------------------|-------------|-----------|-------------|----------|
-| STU_165 | 99.6% | ₹4,974 | 112 days | Default | ✅ True Default |
-| STU_343 | 99.2% | ₹5,078 | 88 days | Default | ✅ True Default |
-| STU_124 | 99.1% | ₹5,044 | 92 days | Default | ⚠️ Check Needed |
-| STU_397 | 98.7% | ₹5,340 | 92 days | Default | ✅ True Default |
-| STU_284 | 98.4% | ₹4,515 | 43 days | Default | ✅ True Default |
+| Student ID | Default Probability | Avg Outstanding | Max Days Late | Escalating | Verdict |
+|------------|---------------------|------------------|---------------|------------|----------|
+| STU_127 | 100.0% | ₹4,102 | 120 days | Yes | ⚠️ Check Needed |
+| STU_194 | 100.0% | ₹8,000 | 120 days | Yes | ✅ True Default |
+| STU_388 | 100.0% | ₹4,348 | 120 days | Yes | ⚠️ Check Needed |
+| STU_067 | 100.0% | ₹5,042 | 107 days | Yes | ⚠️ Check Needed |
+| STU_252 | 100.0% | ₹5,412 | 120 days | Yes | ⚠️ Check Needed |
 
 ---
 
@@ -113,9 +135,9 @@ Our system is an **Early Warning Radar** for school administrators — built ent
 
 Every student has a *normal* attendance pattern. The AI learns this pattern over 200 school days. When a student like Rahul Sharma suddenly drops from 92% → 34% attendance in 3 weeks, the model detects that this is *statistically impossible* for a normal student and flags it. The admin is alerted the same week — not a month later.
 
-**2. The Financial Forecast (GradientBoosting)**
+**2. The Financial Forecast (GradientBoosting, V3)**
 
-Fee defaults don't happen overnight. The AI studies payment history, income brackets, family size, and transport costs to predict — with high recall — which students are likely to miss next term's payment. Early outreach prevents one default at a time.
+Fee defaults don't happen overnight. The AI studies two terms of payment history — outstanding balance, days overdue, and whether a family's situation is improving or worsening — to predict, with high recall, which students are on track to default next term. A family that goes from "slightly late" to "escalating and growing debt" is flagged well before the grace period runs out, so outreach can happen 4-6 weeks early instead of after the fact.
 
 **Why it matters to a school:**
 
